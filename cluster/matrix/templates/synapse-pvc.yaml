@@ -4,7 +4,7 @@ metadata:
   name: synapse-pv-claim
   namespace: {{ .Values.namespace }}
   annotations:
-    {{- include "matrix.config-syncwave" . | nindent 4 }}
+    {{- include "matrix.workloads-syncwave" . | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce
