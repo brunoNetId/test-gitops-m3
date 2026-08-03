@@ -1,0 +1,22 @@
+namespace: test1-devspaces-module3
+
+kafka:
+  clusterName: my-cluster
+  version: 4.1.0
+  metadataVersion: 4.1-IV1
+  broker:
+    replicas: 1
+  controller:
+    replicas: 1
+  config:
+    offsetsTopicReplicationFactor: 1
+    transactionStateLogReplicationFactor: 1
+    transactionStateLogMinIsr: 1
+    defaultReplicationFactor: 1
+    minInsyncReplicas: 1
+
+argocd:
+  syncwave:
+    enabled: true
+    namespace: "-1"
+    kafka: "0"
