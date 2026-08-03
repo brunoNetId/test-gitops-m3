@@ -1,0 +1,11 @@
+gitops:
+  repoURL: https://github.com/brunoNetId/test-gitops-m3.git
+  targetRevision: main
+
+argocd:
+  namespace: openshift-gitops
+
+kafkaInstance:
+  enabled: true
+  name: kafka-instance
+  namespace: test1-devspaces-module3
