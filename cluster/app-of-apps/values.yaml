@@ -5,7 +5,15 @@ gitops:
 argocd:
   namespace: openshift-gitops
 
+cluster:
+  subdomain: apps.cluster-szc5l.dyn.redhatworkshops.io
+
 kafkaInstance:
   enabled: true
   name: kafka-instance
   namespace: test1-devspaces-module3
+
+matrix:
+  enabled: true
+  name: matrix-m3
+  namespace: matrix-m3
