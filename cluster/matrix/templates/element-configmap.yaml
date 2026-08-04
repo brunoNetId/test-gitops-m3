@@ -54,6 +54,7 @@ data:
             "UIFeature.feedback": false
         },
         "io.element.e2ee": {
+            "default": false,
             "force_disable": true
         },
         "jitsi": {
