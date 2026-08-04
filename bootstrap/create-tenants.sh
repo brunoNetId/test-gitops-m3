@@ -13,7 +13,9 @@ set -euo pipefail
 REPO_URL="https://github.com/brunoNetId/test-gitops-m3.git"
 TARGET_REVISION="main"
 ARGOCD_NS="openshift-gitops"
-LABEL="app.kubernetes.io/part-of=tenant-m3"
+LABEL_KEY="app.kubernetes.io/part-of"
+LABEL_VALUE="tenant-m3"
+LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
 
 COUNT=1
 RANDOM_ID=false
@@ -30,7 +32,7 @@ done
 
 if $DELETE; then
   echo "Deleting all tenant Applications..."
-  APPS=$(oc get applications -n "$ARGOCD_NS" -l "$LABEL" -o name 2>/dev/null || true)
+  APPS=$(oc get applications -n "$ARGOCD_NS" -l "$LABEL_SELECTOR" -o name 2>/dev/null || true)
   if [ -z "$APPS" ]; then
     echo "No tenant Applications found."
     exit 0
@@ -67,7 +69,7 @@ metadata:
   name: ${APP_NAME}
   namespace: ${ARGOCD_NS}
   labels:
-    ${LABEL}
+    ${LABEL_KEY}: ${LABEL_VALUE}
   finalizers:
     - resources-finalizer.argocd.argoproj.io/foreground
 spec:
