@@ -50,14 +50,15 @@ spec:
 
               # --- Step 3: Delete room (if found) ---
               if [ -n "$ROOM_ID" ]; then
+                ENCODED_ROOM_ID=$(echo "$ROOM_ID" | sed 's/!/%21/g; s/:/%3A/g')
                 echo "Deleting room ${ROOM_ID}..."
                 curl -s -o /dev/null \
-                  "${SYNAPSE_URL}/_synapse/admin/v1/rooms/${ROOM_ID}/delete" \
-                  -X POST \
+                  "${SYNAPSE_URL}/_synapse/admin/v2/rooms/${ENCODED_ROOM_ID}" \
+                  -X DELETE \
                   -H 'Content-Type: application/json' \
                   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
                   -d '{"purge":true}' 2>/dev/null || echo "WARNING: Room deletion returned an error (non-fatal)."
-                echo "Room deleted."
+                echo "Room deletion queued."
               else
                 echo "Room alias not found — nothing to delete."
               fi
