@@ -29,7 +29,7 @@ spec:
             -p {{ .Values.synapse_admin.password }} \
             -a \
             -c /data/config/homeserver.yaml \
-            -s http://synapse.{{ .Values.namespace }}.svc.cluster.local:8008 2>&1)
+            http://synapse.{{ .Values.namespace }}.svc.cluster.local:8008 2>&1)
           RC=$?
           echo "$OUTPUT"
           if [ $RC -eq 0 ]; then
