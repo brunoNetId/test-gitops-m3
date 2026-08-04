@@ -69,8 +69,8 @@ spec:
               sleep 10
             done
             echo "Trudesk is back up after restart."
-          elif [ "$INSTALL_CODE" = "302" ]; then
-            echo "Already installed (302 redirect). Skipping restart."
+          elif [ "$INSTALL_CODE" = "302" ] || [ "$INSTALL_CODE" = "404" ]; then
+            echo "Already installed (code $INSTALL_CODE). Skipping restart."
           else
             echo "Install returned unexpected code: $INSTALL_CODE"
             exit 1
