@@ -13,6 +13,7 @@ set -euo pipefail
 REPO_URL="https://github.com/brunoNetId/test-gitops-m3.git"
 TARGET_REVISION="main"
 ARGOCD_NS="openshift-gitops"
+NAMESPACE_PREFIX="m3-"
 LABEL_KEY="app.kubernetes.io/part-of"
 LABEL_VALUE="tenant-m3"
 LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
@@ -57,7 +58,7 @@ for i in $(seq 1 "$COUNT"); do
     USERNAME="user${i}"
   fi
 
-  NAMESPACE="${USERNAME}-devspaces"
+  NAMESPACE="${NAMESPACE_PREFIX}${USERNAME}-devspaces"
   APP_NAME="tenant-${USERNAME}-m3"
 
   echo "Creating tenant for ${USERNAME} (namespace: ${NAMESPACE})..."
@@ -85,6 +86,7 @@ spec:
       valuesObject:
         tenant:
           username: ${USERNAME}
+          namespacePrefix: "${NAMESPACE_PREFIX}"
   syncPolicy:
     automated:
       prune: true

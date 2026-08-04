@@ -1,5 +1,6 @@
 tenant:
   username: ""
+  namespacePrefix: ""
 
 kafka:
   clusterName: my-cluster

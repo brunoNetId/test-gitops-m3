@@ -2,7 +2,7 @@
 Tenant namespace — derived from the username.
 */}}
 {{- define "user-workload.namespace" -}}
-{{ .Values.tenant.username }}-devspaces
+{{ .Values.tenant.namespacePrefix }}{{ .Values.tenant.username }}-devspaces
 {{- end }}
 
 {{/*
