@@ -16,6 +16,10 @@ synapse:
   storage:
     size: 5Gi
 
+synapse_admin:
+  username: admin
+  password: admin
+
 element:
   image: vectorim/element-web:latest
 

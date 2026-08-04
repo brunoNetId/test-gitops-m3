@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: synapse-create-admin
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: create-admin
+        image: {{ .Values.synapse.image }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          register_new_matrix_user \
+            -u {{ .Values.synapse_admin.username }} \
+            -p {{ .Values.synapse_admin.password }} \
+            -a \
+            -c /data/config/homeserver.yaml \
+            -s http://synapse:8008 \
+          && echo "Admin user created" \
+          || { echo "User may already exist (expected on re-sync)"; exit 0; }
+        volumeMounts:
+        - name: config
+          mountPath: /data/config
+      volumes:
+      - name: config
+        configMap:
+          name: config
