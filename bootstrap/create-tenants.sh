@@ -52,8 +52,9 @@ fi
 
 # Load OpenShift credentials
 echo "Loading OpenShift credentials..."
+ESCAPED_KEY=$(echo "$CRED_SECRET_KEY" | sed 's/\./\\./g')
 CRED_JSON=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
-  -o jsonpath="{.data.${CRED_SECRET_KEY}}" | base64 -d)
+  -o jsonpath="{.data.${ESCAPED_KEY}}" | base64 -d)
 AVAILABLE_USERS=$(echo "$CRED_JSON" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 echo "Found ${AVAILABLE_USERS} users in credentials Secret."
 
