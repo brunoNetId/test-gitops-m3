@@ -18,14 +18,28 @@ spec:
         - /bin/sh
         - -c
         - |
-          register_new_matrix_user \
+          echo "Waiting for Synapse to be ready..."
+          until curl -sf http://synapse.{{ .Values.namespace }}.svc.cluster.local:8008/_matrix/client/versions > /dev/null 2>&1; do
+            echo "Synapse not ready, retrying in 5s..."
+            sleep 5
+          done
+          echo "Synapse is ready, registering admin user..."
+          OUTPUT=$(register_new_matrix_user \
             -u {{ .Values.synapse_admin.username }} \
             -p {{ .Values.synapse_admin.password }} \
             -a \
             -c /data/config/homeserver.yaml \
-            -s http://synapse:8008 \
-          && echo "Admin user created" \
-          || { echo "User may already exist (expected on re-sync)"; exit 0; }
+            -s http://synapse.{{ .Values.namespace }}.svc.cluster.local:8008 2>&1)
+          RC=$?
+          echo "$OUTPUT"
+          if [ $RC -eq 0 ]; then
+            echo "Admin user created successfully"
+          elif echo "$OUTPUT" | grep -qi "already taken"; then
+            echo "Admin user already exists (expected on re-sync)"
+          else
+            echo "Failed to create admin user"
+            exit 1
+          fi
         volumeMounts:
         - name: config
           mountPath: /data/config
