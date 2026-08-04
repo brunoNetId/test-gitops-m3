@@ -1,0 +1,96 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: matrix-provision-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: matrix-provision
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SYNAPSE_URL="http://synapse.{{ .Values.matrix.namespace }}.svc.cluster.local:8008"
+              SERVER_NAME="{{ .Values.matrix.serverName }}"
+              ADMIN_USER="{{ .Values.matrix.admin.username }}"
+              ADMIN_PASS="{{ .Values.matrix.admin.password }}"
+              USERNAME="{{ .Values.tenant.username }}"
+              USER_PASS="{{ .Values.tenant.password }}"
+              ROOM_NAME="{{ include "user-workload.roomname" . }}"
+
+              # --- Step 1: Wait for Synapse to be ready ---
+              echo "Waiting for Synapse..."
+              until curl -sf "${SYNAPSE_URL}/_matrix/client/versions" > /dev/null 2>&1; do
+                echo "  Synapse not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "Synapse is ready."
+
+              # --- Step 2: Login as admin ---
+              echo "Logging in as admin..."
+              RESPONSE=$(curl -sf "${SYNAPSE_URL}/_matrix/client/r0/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"type\":\"m.login.password\",\"user\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}")
+
+              ACCESS_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              if [ -z "$ACCESS_TOKEN" ]; then
+                echo "ERROR: Failed to get admin access token"
+                exit 1
+              fi
+              echo "Admin login successful."
+
+              # --- Step 3: Create user via Admin API ---
+              echo "Creating Matrix user @${USERNAME}:${SERVER_NAME}..."
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                "${SYNAPSE_URL}/_synapse/admin/v2/users/@${USERNAME}:${SERVER_NAME}" \
+                -X PUT \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -d "{\"password\":\"${USER_PASS}\",\"admin\":false,\"deactivated\":false}")
+
+              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                echo "User created/updated successfully."
+              else
+                echo "ERROR: Failed to create user (HTTP ${HTTP_CODE})"
+                exit 1
+              fi
+
+              # --- Step 4: Create private room ---
+              echo "Creating room '${ROOM_NAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" \
+                "${SYNAPSE_URL}/_matrix/client/v3/createRoom" \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -d "{
+                  \"creation_content\":{\"m.federate\":false},
+                  \"name\":\"${ROOM_NAME}\",
+                  \"preset\":\"private_chat\",
+                  \"room_alias_name\":\"${ROOM_NAME}\",
+                  \"invite\":[\"@${USERNAME}:${SERVER_NAME}\"]
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Room '${ROOM_NAME}' created successfully."
+              elif echo "$BODY" | grep -q "M_ROOM_IN_USE"; then
+                echo "Room '${ROOM_NAME}' already exists (OK)."
+              else
+                echo "ERROR: Failed to create room (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+
+              echo "Matrix provisioning complete for ${USERNAME}."

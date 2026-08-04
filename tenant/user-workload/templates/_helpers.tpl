@@ -44,3 +44,19 @@ ArgoCD sync-wave for Kafka resources
 argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.kafka }}"
 {{- end }}
 {{- end }}
+
+{{/*
+ArgoCD sync-wave for Matrix resources
+*/}}
+{{- define "user-workload.matrix-syncwave" -}}
+{{- if and (.Values.argocd) (.Values.argocd.syncwave) (.Values.argocd.syncwave.enabled) -}}
+argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.matrix }}"
+{{- end }}
+{{- end }}
+
+{{/*
+Derive room name from username — replaces "user" with "room".
+*/}}
+{{- define "user-workload.roomname" -}}
+{{ .Values.tenant.username | replace "user" "room" }}
+{{- end }}

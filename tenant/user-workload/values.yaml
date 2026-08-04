@@ -1,5 +1,7 @@
 tenant:
   username: ""
+  password: ""
+  openshiftUser: ""
   namespacePrefix: ""
 
 kafka:
@@ -17,8 +19,16 @@ kafka:
     defaultReplicationFactor: 1
     minInsyncReplicas: 1
 
+matrix:
+  namespace: matrix-m3
+  serverName: rhintegration.demo
+  admin:
+    username: admin
+    password: admin
+
 argocd:
   syncwave:
     enabled: true
     namespace: "-1"
     kafka: "0"
+    matrix: "0"

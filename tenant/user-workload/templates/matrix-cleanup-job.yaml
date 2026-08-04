@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: matrix-cleanup-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: matrix-cleanup
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              SYNAPSE_URL="http://synapse.{{ .Values.matrix.namespace }}.svc.cluster.local:8008"
+              SERVER_NAME="{{ .Values.matrix.serverName }}"
+              ADMIN_USER="{{ .Values.matrix.admin.username }}"
+              ADMIN_PASS="{{ .Values.matrix.admin.password }}"
+              USERNAME="{{ .Values.tenant.username }}"
+              ROOM_NAME="{{ include "user-workload.roomname" . }}"
+
+              # --- Step 1: Login as admin ---
+              echo "Logging in as admin..."
+              RESPONSE=$(curl -sf "${SYNAPSE_URL}/_matrix/client/r0/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"type\":\"m.login.password\",\"user\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}" 2>/dev/null)
+
+              ACCESS_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              if [ -z "$ACCESS_TOKEN" ]; then
+                echo "WARNING: Could not get admin token — Synapse may be unreachable. Skipping cleanup."
+                exit 0
+              fi
+              echo "Admin login successful."
+
+              # --- Step 2: Resolve room alias to room_id ---
+              ENCODED_ALIAS="%23${ROOM_NAME}%3A${SERVER_NAME}"
+              echo "Resolving room alias #${ROOM_NAME}:${SERVER_NAME}..."
+              RESPONSE=$(curl -s "${SYNAPSE_URL}/_matrix/client/v3/directory/room/${ENCODED_ALIAS}" \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" 2>/dev/null)
+
+              ROOM_ID=$(echo "$RESPONSE" | sed -n 's/.*"room_id":"\([^"]*\)".*/\1/p')
+
+              # --- Step 3: Delete room (if found) ---
+              if [ -n "$ROOM_ID" ]; then
+                echo "Deleting room ${ROOM_ID}..."
+                curl -s -o /dev/null \
+                  "${SYNAPSE_URL}/_synapse/admin/v1/rooms/${ROOM_ID}/delete" \
+                  -X POST \
+                  -H 'Content-Type: application/json' \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                  -d '{"purge":true}' 2>/dev/null || echo "WARNING: Room deletion returned an error (non-fatal)."
+                echo "Room deleted."
+              else
+                echo "Room alias not found — nothing to delete."
+              fi
+
+              # --- Step 4: Deactivate user ---
+              echo "Deactivating user @${USERNAME}:${SERVER_NAME}..."
+              curl -s -o /dev/null \
+                "${SYNAPSE_URL}/_synapse/admin/v1/deactivate/@${USERNAME}:${SERVER_NAME}" \
+                -X POST \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -d '{"erase":true}' 2>/dev/null || echo "WARNING: User deactivation returned an error (non-fatal)."
+              echo "User deactivated."
+
+              echo "Matrix cleanup complete for ${USERNAME}."

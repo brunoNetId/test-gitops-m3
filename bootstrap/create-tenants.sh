@@ -18,6 +18,10 @@ LABEL_KEY="app.kubernetes.io/part-of"
 LABEL_VALUE="tenant-m3"
 LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
 
+CRED_SECRET_NS="showroom"
+CRED_SECRET_NAME="im-credentials"
+CRED_SECRET_KEY="openshift.json"
+
 COUNT=1
 RANDOM_ID=false
 DELETE=false
@@ -39,12 +43,23 @@ if $DELETE; then
     exit 0
   fi
   for APP in $APPS; do
-    echo "  Removing finalizers and deleting $APP..."
-    oc patch "$APP" -n "$ARGOCD_NS" --type merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+    echo "  Deleting $APP..."
     oc delete "$APP" -n "$ARGOCD_NS" 2>/dev/null || true
   done
   echo "Done."
   exit 0
+fi
+
+# Load OpenShift credentials
+echo "Loading OpenShift credentials..."
+CRED_JSON=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
+  -o jsonpath="{.data.${CRED_SECRET_KEY}}" | base64 -d)
+AVAILABLE_USERS=$(echo "$CRED_JSON" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+echo "Found ${AVAILABLE_USERS} users in credentials Secret."
+
+if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
+  echo "ERROR: Requested ${COUNT} tenants but only ${AVAILABLE_USERS} users available."
+  exit 1
 fi
 
 generate_id() {
@@ -52,16 +67,27 @@ generate_id() {
 }
 
 for i in $(seq 1 "$COUNT"); do
+  OC_USER="user${i}"
+  PASSWORD=$(echo "$CRED_JSON" | python3 -c "
+import sys, json
+users = json.load(sys.stdin)
+match = next((u['password'] for u in users if u['name'] == '${OC_USER}'), None)
+if match:
+    print(match)
+else:
+    sys.exit(1)
+")
+
   if $RANDOM_ID; then
     USERNAME="user-$(generate_id)"
   else
-    USERNAME="user${i}"
+    USERNAME="$OC_USER"
   fi
 
   NAMESPACE="${NAMESPACE_PREFIX}${USERNAME}-devspaces"
   APP_NAME="tenant-${USERNAME}-m3"
 
-  echo "Creating tenant for ${USERNAME} (namespace: ${NAMESPACE})..."
+  echo "Creating tenant for ${USERNAME} (openshift user: ${OC_USER}, namespace: ${NAMESPACE})..."
 
   cat <<EOF | oc apply -f -
 apiVersion: argoproj.io/v1alpha1
@@ -86,6 +112,8 @@ spec:
       valuesObject:
         tenant:
           username: ${USERNAME}
+          password: "${PASSWORD}"
+          openshiftUser: ${OC_USER}
           namespacePrefix: "${NAMESPACE_PREFIX}"
   syncPolicy:
     automated:
