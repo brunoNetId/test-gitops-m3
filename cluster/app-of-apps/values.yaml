@@ -22,3 +22,8 @@ rocketchat:
   enabled: true
   name: rocketchat-m3
   namespace: rocketchat-m3
+
+helpdesk:
+  enabled: true
+  name: helpdesk-m3
+  namespace: helpdesk-m3
