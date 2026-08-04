@@ -9,7 +9,7 @@ cluster:
   subdomain: apps.cluster-szc5l.dyn.redhatworkshops.io
 
 kafkaInstance:
-  enabled: true
+  enabled: false
   name: kafka-instance
   namespace: test1-devspaces-module3
 
