@@ -17,3 +17,8 @@ matrix:
   enabled: true
   name: matrix-m3
   namespace: matrix-m3
+
+rocketchat:
+  enabled: true
+  name: rocketchat-m3
+  namespace: rocketchat-m3
