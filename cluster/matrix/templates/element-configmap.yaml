@@ -48,8 +48,12 @@ data:
         "setting_defaults": {
             "breadcrumbs": true,
             "UIFeature.passwordReset": false,
-            "UIFeature.BulkUnverifiedSessionsReminder": false
+            "UIFeature.BulkUnverifiedSessionsReminder": false,
+            "e2ee_default": false,
+            "UIFeature.identityServer": false,
+            "UIFeature.feedback": false
         },
+        "force_disable_encryption": true,
         "jitsi": {
             "preferred_domain": "meet.element.io"
         }
