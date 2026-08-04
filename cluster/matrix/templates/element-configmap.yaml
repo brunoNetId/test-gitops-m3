@@ -53,7 +53,9 @@ data:
             "UIFeature.identityServer": false,
             "UIFeature.feedback": false
         },
-        "force_disable_encryption": true,
+        "io.element.e2ee": {
+            "force_disable": true
+        },
         "jitsi": {
             "preferred_domain": "meet.element.io"
         }
