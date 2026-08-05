@@ -64,7 +64,7 @@ if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
 fi
 
 generate_id() {
-  cat /dev/urandom | LC_ALL=C tr -dc 'a-z0-9' | head -c 5
+  LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 5 || true
 }
 
 for i in $(seq 1 "$COUNT"); do
