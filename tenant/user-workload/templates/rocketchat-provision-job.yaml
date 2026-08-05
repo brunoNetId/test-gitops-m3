@@ -1,0 +1,102 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rc-provision-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: rc-provision
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              RC_URL="http://rocketchat.{{ .Values.rocketchat.namespace }}.svc.cluster.local:3000"
+              ADMIN_USER="{{ .Values.rocketchat.admin.username }}"
+              ADMIN_PASS="{{ .Values.rocketchat.admin.password }}"
+              USERNAME="{{ .Values.tenant.username }}"
+              USER_PASS="{{ .Values.tenant.password }}"
+              ROOM_NAME="{{ include "user-workload.roomname" . }}"
+
+              # --- Step 1: Wait for RocketChat to be ready ---
+              echo "Waiting for RocketChat..."
+              until curl -sf "${RC_URL}/api/v1/info" > /dev/null 2>&1; do
+                echo "  RocketChat not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "RocketChat is ready."
+
+              # --- Step 2: Login as admin ---
+              echo "Logging in as admin..."
+              RESPONSE=$(curl -sf "${RC_URL}/api/v1/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"user\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}")
+
+              USER_ID=$(echo "$RESPONSE" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
+              AUTH_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"authToken":"\([^"]*\)".*/\1/p')
+              if [ -z "$AUTH_TOKEN" ]; then
+                echo "ERROR: Failed to get admin auth token"
+                exit 1
+              fi
+              echo "Admin login successful."
+
+              # --- Step 3: Create user ---
+              echo "Creating RocketChat user '${USERNAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/users.create" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${USER_ID}" \
+                -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                -d "{
+                  \"name\": \"${USERNAME}\",
+                  \"email\": \"${USERNAME}@user.tld\",
+                  \"username\": \"${USERNAME}\",
+                  \"password\": \"${USER_PASS}\"
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "User '${USERNAME}' created successfully."
+              elif echo "$BODY" | grep -q "already in use"; then
+                echo "User '${USERNAME}' already exists (OK)."
+              else
+                echo "ERROR: Failed to create user (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+
+              # --- Step 4: Create private channel ---
+              echo "Creating private channel '${ROOM_NAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/groups.create" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${USER_ID}" \
+                -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                -d "{
+                  \"name\": \"${ROOM_NAME}\",
+                  \"members\": [\"${USERNAME}\"]
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Channel '${ROOM_NAME}' created successfully."
+              elif echo "$BODY" | grep -q "already exists"; then
+                echo "Channel '${ROOM_NAME}' already exists (OK)."
+              else
+                echo "ERROR: Failed to create channel (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+
+              echo "RocketChat provisioning complete for ${USERNAME}."

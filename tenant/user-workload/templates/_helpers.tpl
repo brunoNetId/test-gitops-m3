@@ -55,6 +55,15 @@ argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.matrix }}"
 {{- end }}
 
 {{/*
+ArgoCD sync-wave for RocketChat resources
+*/}}
+{{- define "user-workload.rocketchat-syncwave" -}}
+{{- if and (.Values.argocd) (.Values.argocd.syncwave) (.Values.argocd.syncwave.enabled) -}}
+argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.rocketchat }}"
+{{- end }}
+{{- end }}
+
+{{/*
 Derive room name from username — replaces "user" with "room".
 */}}
 {{- define "user-workload.roomname" -}}

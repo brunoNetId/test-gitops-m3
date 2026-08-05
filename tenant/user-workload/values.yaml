@@ -26,9 +26,16 @@ matrix:
     username: admin
     password: admin
 
+rocketchat:
+  namespace: rocketchat-m3
+  admin:
+    username: rcadmin
+    password: camel
+
 argocd:
   syncwave:
     enabled: true
     namespace: "-1"
     kafka: "0"
     matrix: "0"
+    rocketchat: "0"
