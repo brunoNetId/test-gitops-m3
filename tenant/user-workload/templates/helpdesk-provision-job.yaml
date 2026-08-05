@@ -74,7 +74,7 @@ spec:
 
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Group created successfully."
-              elif echo "$BODY" | grep -qi "already exists\|duplicate"; then
+              elif echo "$BODY" | grep -q "11000"; then
                 echo "Group '${GROUP_NAME}' already exists (OK)."
               else
                 echo "ERROR: Failed to create group (HTTP ${HTTP_CODE}): ${BODY}"
@@ -115,7 +115,7 @@ spec:
 
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "User '${USERNAME}' created successfully."
-              elif echo "$BODY" | grep -qi "already exists\|duplicate"; then
+              elif echo "$BODY" | grep -q "11000"; then
                 echo "User '${USERNAME}' already exists (OK)."
               else
                 echo "ERROR: Failed to create user (HTTP ${HTTP_CODE}): ${BODY}"

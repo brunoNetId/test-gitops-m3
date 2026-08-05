@@ -15,7 +15,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: hd-cleanup
-          image: curlimages/curl:latest
+          image: badouralix/curl-jq:latest
           command:
             - /bin/sh
             - -c
@@ -41,10 +41,10 @@ spec:
 
               # --- Step 2: Find and delete user ---
               echo "Looking up user '${USERNAME}'..."
-              RESPONSE=$(curl -sf "${HD_URL}/api/v1/users?limit=-1" \
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/users?page=0&limit=100" \
                 -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || true)
 
-              USER_ID=$(echo "$RESPONSE" | grep -o "\"_id\":\"[^\"]*\",\"username\":\"${USERNAME}\"" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+              USER_ID=$(echo "$RESPONSE" | jq -r ".users[]? | select(.username==\"${USERNAME}\") | ._id" 2>/dev/null)
 
               if [ -n "$USER_ID" ]; then
                 echo "Deleting user ${USERNAME} (${USER_ID})..."
@@ -60,7 +60,7 @@ spec:
               RESPONSE=$(curl -sf "${HD_URL}/api/v1/groups/all" \
                 -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || true)
 
-              GROUP_ID=$(echo "$RESPONSE" | grep -o "\"_id\":\"[^\"]*\",\"name\":\"${GROUP_NAME}\"" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+              GROUP_ID=$(echo "$RESPONSE" | jq -r ".groups[]? | select(.name==\"${GROUP_NAME}\") | ._id" 2>/dev/null)
 
               if [ -n "$GROUP_ID" ]; then
                 echo "Deleting group '${GROUP_NAME}' (${GROUP_ID})..."
