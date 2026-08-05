@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hd-cleanup-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: hd-cleanup
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              HD_URL="http://helpdesk.{{ .Values.helpdesk.namespace }}.svc.cluster.local:8118"
+              ADMIN_USER="{{ .Values.helpdesk.admin.username }}"
+              ADMIN_PASS="{{ .Values.helpdesk.admin.password }}"
+              USERNAME="{{ .Values.tenant.username }}"
+              GROUP_NAME="Group ${USERNAME}"
+
+              # --- Step 1: Login as admin ---
+              echo "Logging in as admin..."
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"username\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}" 2>/dev/null)
+
+              ACCESS_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
+              if [ -z "$ACCESS_TOKEN" ]; then
+                echo "WARNING: Could not get admin token — Trudesk may be unreachable. Skipping cleanup."
+                exit 0
+              fi
+              echo "Admin login successful."
+
+              # --- Step 2: Find and delete user ---
+              echo "Looking up user '${USERNAME}'..."
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/users?limit=-1" \
+                -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || true)
+
+              USER_ID=$(echo "$RESPONSE" | grep -o "\"_id\":\"[^\"]*\",\"username\":\"${USERNAME}\"" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+
+              if [ -n "$USER_ID" ]; then
+                echo "Deleting user ${USERNAME} (${USER_ID})..."
+                curl -s -o /dev/null -X DELETE "${HD_URL}/api/v1/users/${USER_ID}" \
+                  -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || echo "WARNING: User deletion returned an error (non-fatal)."
+                echo "User deletion done."
+              else
+                echo "User '${USERNAME}' not found — nothing to delete."
+              fi
+
+              # --- Step 3: Find and delete group ---
+              echo "Looking up group '${GROUP_NAME}'..."
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/groups/all" \
+                -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || true)
+
+              GROUP_ID=$(echo "$RESPONSE" | grep -o "\"_id\":\"[^\"]*\",\"name\":\"${GROUP_NAME}\"" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+
+              if [ -n "$GROUP_ID" ]; then
+                echo "Deleting group '${GROUP_NAME}' (${GROUP_ID})..."
+                curl -s -o /dev/null -X DELETE "${HD_URL}/api/v1/groups/${GROUP_ID}" \
+                  -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || echo "WARNING: Group deletion returned an error (non-fatal)."
+                echo "Group deletion done."
+              else
+                echo "Group '${GROUP_NAME}' not found — nothing to delete."
+              fi
+
+              echo "HelpDesk cleanup complete for ${USERNAME}."

@@ -1,0 +1,125 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hd-provision-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: hd-provision
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              HD_URL="http://helpdesk.{{ .Values.helpdesk.namespace }}.svc.cluster.local:8118"
+              ADMIN_USER="{{ .Values.helpdesk.admin.username }}"
+              ADMIN_PASS="{{ .Values.helpdesk.admin.password }}"
+              USERNAME="{{ .Values.tenant.username }}"
+              USER_PASS="{{ .Values.tenant.password }}"
+              GROUP_NAME="Group ${USERNAME}"
+
+              # --- Step 1: Wait for Trudesk to be ready ---
+              echo "Waiting for Trudesk..."
+              until curl -sf "${HD_URL}" > /dev/null 2>&1; do
+                echo "  Trudesk not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "Trudesk is ready."
+
+              # --- Step 2: Login as admin ---
+              echo "Logging in as admin..."
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"username\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}")
+
+              ACCESS_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
+              if [ -z "$ACCESS_TOKEN" ]; then
+                echo "ERROR: Failed to get admin access token"
+                exit 1
+              fi
+              echo "Admin login successful."
+
+              # --- Step 3: Get User role ID ---
+              echo "Fetching User role ID..."
+              RESPONSE=$(curl -sf "${HD_URL}/api/v1/roles" \
+                -H "accesstoken: ${ACCESS_TOKEN}")
+
+              ROLE_ID=$(echo "$RESPONSE" | sed -n 's/.*"_id":"\([^"]*\)","name":"User".*/\1/p')
+              if [ -z "$ROLE_ID" ]; then
+                echo "ERROR: Could not find User role"
+                exit 1
+              fi
+              echo "User role ID: ${ROLE_ID}"
+
+              # --- Step 4: Create group ---
+              echo "Creating group '${GROUP_NAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${HD_URL}/api/v1/groups/create" \
+                -H 'Content-Type: application/json' \
+                -H "accesstoken: ${ACCESS_TOKEN}" \
+                -d "{\"name\": \"${GROUP_NAME}\", \"members\": []}")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Group created successfully."
+              elif echo "$BODY" | grep -qi "already exists\|duplicate"; then
+                echo "Group '${GROUP_NAME}' already exists (OK)."
+              else
+                echo "ERROR: Failed to create group (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+
+              GROUP_ID=$(echo "$BODY" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+              if [ -z "$GROUP_ID" ]; then
+                echo "Looking up existing group ID..."
+                RESPONSE=$(curl -sf "${HD_URL}/api/v1/groups/all" \
+                  -H "accesstoken: ${ACCESS_TOKEN}")
+                GROUP_ID=$(echo "$RESPONSE" | sed -n "s/.*\"_id\":\"\([^\"]*\)\",\"name\":\"${GROUP_NAME}\".*/\1/p")
+              fi
+
+              if [ -z "$GROUP_ID" ]; then
+                echo "ERROR: Could not determine group ID"
+                exit 1
+              fi
+              echo "Group ID: ${GROUP_ID}"
+
+              # --- Step 5: Create user ---
+              echo "Creating Trudesk user '${USERNAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${HD_URL}/api/v1/users/create" \
+                -H 'Content-Type: application/json' \
+                -H "accesstoken: ${ACCESS_TOKEN}" \
+                -d "{
+                  \"aUsername\": \"${USERNAME}\",
+                  \"aFullname\": \"${USERNAME}\",
+                  \"aEmail\": \"${USERNAME}@globex.com\",
+                  \"aPass\": \"${USER_PASS}\",
+                  \"aPassConfirm\": \"${USER_PASS}\",
+                  \"aRole\": \"${ROLE_ID}\",
+                  \"aGrps\": [\"${GROUP_ID}\"]
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "User '${USERNAME}' created successfully."
+              elif echo "$BODY" | grep -qi "already exists\|duplicate"; then
+                echo "User '${USERNAME}' already exists (OK)."
+              else
+                echo "ERROR: Failed to create user (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
+
+              echo "HelpDesk provisioning complete for ${USERNAME}."

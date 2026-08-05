@@ -32,6 +32,12 @@ rocketchat:
     username: rcadmin
     password: camel
 
+helpdesk:
+  namespace: helpdesk-m3
+  admin:
+    username: admin
+    password: "Openshift1!"
+
 argocd:
   syncwave:
     enabled: true
@@ -39,3 +45,4 @@ argocd:
     kafka: "0"
     matrix: "0"
     rocketchat: "0"
+    helpdesk: "0"
