@@ -116,7 +116,7 @@ spec:
               echo "Storing RocketChat credentials..."
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               NAMESPACE="{{ include "user-workload.namespace" . }}"
-              JSON_DATA='{"userId":"'"${RC_USER_ID}"'","token":"'"${RC_USER_TOKEN}"'"}'
+              JSON_DATA=$(printf '{\n  "userId": "%s",\n  "token": "%s"\n}' "$RC_USER_ID" "$RC_USER_TOKEN")
               B64_DATA=$(printf '%s' "$JSON_DATA" | base64 | tr -d '\n')
               HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
                 "https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/lab-credentials" \

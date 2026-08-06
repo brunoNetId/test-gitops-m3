@@ -120,7 +120,7 @@ spec:
               echo "Storing Matrix credentials..."
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               NAMESPACE="{{ include "user-workload.namespace" . }}"
-              JSON_DATA='{"token":"'"${USER_TOKEN}"'","room":"'"${ROOM_ID}"'"}'
+              JSON_DATA=$(printf '{\n  "token": "%s",\n  "room": "%s"\n}' "$USER_TOKEN" "$ROOM_ID")
               B64_DATA=$(printf '%s' "$JSON_DATA" | base64 | tr -d '\n')
               HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
                 "https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/lab-credentials" \

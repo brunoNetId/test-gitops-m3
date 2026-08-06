@@ -126,18 +126,15 @@ spec:
               echo "Fetching ticket type and priority IDs..."
               RESPONSE=$(curl -sf "${HD_URL}/api/v1/tickets/types" \
                 -H "accesstoken: ${ACCESS_TOKEN}")
-              TYPE_ID_ISSUE=$(echo "$RESPONSE" | jq -r '.types[]? | select(.name=="Issue") | ._id' 2>/dev/null)
-
-              RESPONSE=$(curl -sf "${HD_URL}/api/v1/tickets/priorities" \
-                -H "accesstoken: ${ACCESS_TOKEN}")
-              PRIORITY_ID_NORMAL=$(echo "$RESPONSE" | jq -r '.priorities[]? | select(.name=="Normal") | ._id' 2>/dev/null)
+              TYPE_ID_ISSUE=$(echo "$RESPONSE" | jq -r '.[]? | select(.name=="Issue") | ._id' 2>/dev/null)
+              PRIORITY_ID_NORMAL=$(echo "$RESPONSE" | jq -r '.[]? | select(.name=="Issue") | .priorities[]? | select(.name=="Normal") | ._id' 2>/dev/null)
               echo "Type ID (Issue): ${TYPE_ID_ISSUE}, Priority ID (Normal): ${PRIORITY_ID_NORMAL}"
 
               # --- Step 7: Store credentials in lab-credentials Secret ---
               echo "Storing HelpDesk credentials..."
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               NAMESPACE="{{ include "user-workload.namespace" . }}"
-              JSON_DATA=$(jq -n \
+              JSON_DATA=$(jq -n --indent 2 \
                 --arg gid "$GROUP_ID" \
                 --arg tid "$TYPE_ID_ISSUE" \
                 --arg pid "$PRIORITY_ID_NORMAL" \
