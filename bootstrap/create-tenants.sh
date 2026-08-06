@@ -70,6 +70,10 @@ S3_SECRET_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
 S3_ENDPOINT="https://$(oc get route s3 -n "$NOOBAA_SECRET_NS" -o jsonpath='{.spec.host}')"
 echo "S3 endpoint: ${S3_ENDPOINT}"
 
+# Detect cluster apps domain
+APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
+echo "Apps domain: ${APPS_DOMAIN}"
+
 if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
   echo "ERROR: Requested ${COUNT} tenants but only ${AVAILABLE_USERS} users available."
   exit 1
@@ -128,6 +132,8 @@ spec:
           password: "${PASSWORD}"
           openshiftUser: ${OC_USER}
           namespacePrefix: "${NAMESPACE_PREFIX}"
+        cluster:
+          appsDomain: "${APPS_DOMAIN}"
         s3:
           endpoint: "${S3_ENDPOINT}"
           accessKey: "${S3_ACCESS_KEY}"

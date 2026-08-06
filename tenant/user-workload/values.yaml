@@ -47,6 +47,18 @@ sharedDatabase:
 admin:
   namespace: admin-m3
 
+cluster:
+  appsDomain: ""
+
+devworkspace:
+  name: camel-lab
+  gitRepo: "https://github.com/rh-app-connect-ai/devspaces-workspace"
+  gitBranch: main
+  image: quay.io/devfile/universal-developer-image:ubi10-latest
+  memoryLimit: 3Gi
+  m2VolumeSize: 3Gi
+  camelVersion: "4.20.0"
+
 s3:
   endpoint: ""
   accessKey: ""

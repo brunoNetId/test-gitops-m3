@@ -1,0 +1,127 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lab-config-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: lab-config-assembly
+          image: badouralix/curl-jq:latest
+          env:
+            - name: HELPDESK_URL
+              value: "https://helpdesk-{{ .Values.helpdesk.namespace }}.{{ .Values.cluster.appsDomain }}"
+            - name: MATRIX_URL
+              value: "https://element-{{ .Values.matrix.namespace }}.{{ .Values.cluster.appsDomain }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              NAMESPACE="{{ include "user-workload.namespace" . }}"
+              KUBE_API="https://kubernetes.default.svc"
+              EXPECTED_KEYS="database.json helpdesk.json matrix.json rocketchat.json s3.json"
+
+              # --- Step 1: Wait for all JSON keys in lab-credentials ---
+              echo "Waiting for lab-credentials to be fully populated..."
+              while true; do
+                SECRET=$(curl -sSk "$KUBE_API/api/v1/namespaces/$NAMESPACE/secrets/lab-credentials" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+
+                ALL_PRESENT=true
+                for key in $EXPECTED_KEYS; do
+                  if ! echo "$SECRET" | jq -e ".data[\"$key\"]" > /dev/null 2>&1; then
+                    echo "  Waiting for $key..."
+                    ALL_PRESENT=false
+                    break
+                  fi
+                done
+
+                if [ "$ALL_PRESENT" = "true" ]; then
+                  break
+                fi
+                sleep 5
+              done
+              echo "All credentials present."
+
+              # --- Step 2: Decode JSON keys ---
+              DB=$(echo "$SECRET" | jq -r '.data["database.json"]' | base64 -d)
+              S3=$(echo "$SECRET" | jq -r '.data["s3.json"]' | base64 -d)
+              MX=$(echo "$SECRET" | jq -r '.data["matrix.json"]' | base64 -d)
+              RC=$(echo "$SECRET" | jq -r '.data["rocketchat.json"]' | base64 -d)
+              HD=$(echo "$SECRET" | jq -r '.data["helpdesk.json"]' | base64 -d)
+
+              # --- Step 3: Assemble properties file ---
+              CONFIG=$(jq -rn \
+                --argjson db "$DB" \
+                --argjson s3 "$S3" \
+                --argjson mx "$MX" \
+                --argjson rc "$RC" \
+                --argjson hd "$HD" \
+                --arg helpdesk_url "$HELPDESK_URL" \
+                --arg matrix_url "$MATRIX_URL" \
+              '"# Helpdesk (per-user)
+              helpdesk_username=\($hd.username)
+              helpdesk_password=\($hd.password)
+              helpdesk_group_id=\($hd.groupId)
+
+              # Helpdesk (shared)
+              helpdesk_url=\($helpdesk_url)
+              helpdesk_type_id_issue=\($hd.typeIdIssue)
+              helpdesk_priority_id_normal=\($hd.priorityIdNormal)
+
+              # Database (per-user)
+              db_username=\($db.username)
+              db_password=\($db.password)
+              db_host=\($db.host)
+              db_port=\($db.port)
+              db_database=\($db.database)
+              db_schema=\($db.schema)
+
+              # RocketChat (per-user)
+              rocketchat_userid=\($rc.userId)
+              rocketchat_token=\($rc.token)
+
+              # Matrix (per-user)
+              matrix_token=\($mx.token)
+              matrix_room=\($mx.room)
+
+              # Matrix (shared)
+              matrix_url=\($matrix_url)
+
+              # S3 (shared)
+              s3_access_key=\($s3.accessKey)
+              s3_secret_key=\($s3.secretKey)
+              s3_endpoint=\($s3.endpoint)
+
+              # S3 (per-user)
+              s3_bucket=\($s3.bucket)"')
+
+              echo "Assembled lab-config:"
+              echo "$CONFIG"
+
+              # --- Step 4: Patch lab-config Secret ---
+              echo "Updating lab-config Secret..."
+              B64_CONFIG=$(printf '%s' "$CONFIG" | base64 | tr -d '\n')
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                "$KUBE_API/api/v1/namespaces/$NAMESPACE/secrets/lab-config" \
+                -H "Authorization: Bearer $SA_TOKEN" \
+                -H "Content-Type: application/merge-patch+json" \
+                -d '{"data":{"config":"'"$B64_CONFIG"'"}}')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "lab-config Secret updated successfully."
+              else
+                echo "ERROR: Failed to update lab-config (HTTP $HTTP_CODE)"
+                exit 1
+              fi
