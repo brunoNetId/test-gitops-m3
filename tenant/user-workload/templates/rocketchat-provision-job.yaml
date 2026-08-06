@@ -43,9 +43,9 @@ spec:
                 -H 'Content-Type: application/json' \
                 -d "{\"user\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}")
 
-              USER_ID=$(echo "$RESPONSE" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
-              AUTH_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"authToken":"\([^"]*\)".*/\1/p')
-              if [ -z "$AUTH_TOKEN" ]; then
+              ADMIN_ID=$(echo "$RESPONSE" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
+              ADMIN_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"authToken":"\([^"]*\)".*/\1/p')
+              if [ -z "$ADMIN_TOKEN" ]; then
                 echo "ERROR: Failed to get admin auth token"
                 exit 1
               fi
@@ -55,8 +55,8 @@ spec:
               echo "Creating RocketChat user '${USERNAME}'..."
               RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/users.create" \
                 -H 'Content-Type: application/json' \
-                -H "X-User-Id: ${USER_ID}" \
-                -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                -H "X-User-Id: ${ADMIN_ID}" \
+                -H "X-Auth-Token: ${ADMIN_TOKEN}" \
                 -d "{
                   \"name\": \"${USERNAME}\",
                   \"email\": \"${USERNAME}@user.tld\",
@@ -80,8 +80,8 @@ spec:
               echo "Creating private channel '${ROOM_NAME}'..."
               RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/groups.create" \
                 -H 'Content-Type: application/json' \
-                -H "X-User-Id: ${USER_ID}" \
-                -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                -H "X-User-Id: ${ADMIN_ID}" \
+                -H "X-Auth-Token: ${ADMIN_TOKEN}" \
                 -d "{
                   \"name\": \"${ROOM_NAME}\",
                   \"members\": [\"${USERNAME}\"]
@@ -97,6 +97,36 @@ spec:
               else
                 echo "ERROR: Failed to create channel (HTTP ${HTTP_CODE}): ${BODY}"
                 exit 1
+              fi
+
+              # --- Step 5: Login as user to get credentials ---
+              echo "Logging in as ${USERNAME}..."
+              RESPONSE=$(curl -sf "${RC_URL}/api/v1/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"user\":\"${USERNAME}\",\"password\":\"${USER_PASS}\"}")
+              RC_USER_ID=$(echo "$RESPONSE" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
+              RC_USER_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"authToken":"\([^"]*\)".*/\1/p')
+              if [ -z "$RC_USER_TOKEN" ]; then
+                echo "ERROR: Failed to get user auth token"
+                exit 1
+              fi
+              echo "User login successful (userId: ${RC_USER_ID})."
+
+              # --- Step 6: Store credentials in lab-credentials Secret ---
+              echo "Storing RocketChat credentials..."
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              NAMESPACE="{{ include "user-workload.namespace" . }}"
+              JSON_DATA='{"userId":"'"${RC_USER_ID}"'","token":"'"${RC_USER_TOKEN}"'"}'
+              B64_DATA=$(printf '%s' "$JSON_DATA" | base64 | tr -d '\n')
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                "https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/lab-credentials" \
+                -H "Authorization: Bearer ${SA_TOKEN}" \
+                -H "Content-Type: application/merge-patch+json" \
+                -d '{"data":{"rocketchat.json":"'"${B64_DATA}"'"}}')
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "RocketChat credentials stored."
+              else
+                echo "WARNING: Failed to store credentials (HTTP ${HTTP_CODE})"
               fi
 
               echo "RocketChat provisioning complete for ${USERNAME}."

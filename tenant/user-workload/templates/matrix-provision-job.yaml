@@ -86,11 +86,51 @@ spec:
 
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Room '${ROOM_NAME}' created successfully."
+                ROOM_ID=$(echo "$BODY" | sed -n 's/.*"room_id":"\([^"]*\)".*/\1/p')
               elif echo "$BODY" | grep -q "M_ROOM_IN_USE"; then
                 echo "Room '${ROOM_NAME}' already exists (OK)."
               else
                 echo "ERROR: Failed to create room (HTTP ${HTTP_CODE}): ${BODY}"
                 exit 1
+              fi
+
+              # --- Step 5: Look up room ID if not captured ---
+              if [ -z "$ROOM_ID" ]; then
+                echo "Looking up room ID by alias..."
+                RESPONSE=$(curl -sf \
+                  "${SYNAPSE_URL}/_matrix/client/v3/directory/room/%23${ROOM_NAME}:${SERVER_NAME}" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}")
+                ROOM_ID=$(echo "$RESPONSE" | sed -n 's/.*"room_id":"\([^"]*\)".*/\1/p')
+              fi
+              echo "Room ID: ${ROOM_ID}"
+
+              # --- Step 6: Login as user to get access token ---
+              echo "Logging in as ${USERNAME}..."
+              RESPONSE=$(curl -sf "${SYNAPSE_URL}/_matrix/client/r0/login" \
+                -H 'Content-Type: application/json' \
+                -d "{\"type\":\"m.login.password\",\"user\":\"${USERNAME}\",\"password\":\"${USER_PASS}\"}")
+              USER_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              if [ -z "$USER_TOKEN" ]; then
+                echo "ERROR: Failed to get user access token"
+                exit 1
+              fi
+              echo "User login successful."
+
+              # --- Step 7: Store credentials in lab-credentials Secret ---
+              echo "Storing Matrix credentials..."
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              NAMESPACE="{{ include "user-workload.namespace" . }}"
+              JSON_DATA='{"token":"'"${USER_TOKEN}"'","room":"'"${ROOM_ID}"'"}'
+              B64_DATA=$(printf '%s' "$JSON_DATA" | base64 | tr -d '\n')
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                "https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/lab-credentials" \
+                -H "Authorization: Bearer ${SA_TOKEN}" \
+                -H "Content-Type: application/merge-patch+json" \
+                -d '{"data":{"matrix.json":"'"${B64_DATA}"'"}}')
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Matrix credentials stored."
+              else
+                echo "WARNING: Failed to store credentials (HTTP ${HTTP_CODE})"
               fi
 
               echo "Matrix provisioning complete for ${USERNAME}."
