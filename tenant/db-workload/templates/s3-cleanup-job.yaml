@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-cleanup-{{ .Values.tenant.username }}
+  namespace: {{ .Values.admin.namespace }}
+  labels:
+    {{- include "db-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: s3-cleanup
+          image: amazon/aws-cli:latest
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ .Values.s3.accessKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{ .Values.s3.secretKey }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              S3_ENDPOINT="{{ .Values.s3.endpoint }}"
+              BUCKET="{{ .Values.tenant.username }}"
+
+              echo "=== S3 cleanup for ${BUCKET} ==="
+
+              echo "Deleting bucket '${BUCKET}' and all contents..."
+              aws --endpoint-url "$S3_ENDPOINT" --no-verify-ssl \
+                s3 rb "s3://${BUCKET}" --force 2>&1 || echo "WARNING: Bucket deletion returned an error (non-fatal)."
+
+              echo "S3 cleanup complete for ${BUCKET}."

@@ -12,3 +12,10 @@ sharedDatabase:
 
 admin:
   namespace: admin-m3
+
+s3:
+  endpoint: ""
+  accessKey: ""
+  secretKey: ""
+  invoiceUrl: "https://raw.githubusercontent.com/rh-app-connect-ai/lab-deploy-assets/main/invoices/invoice_61356291.pdf"
+  invoiceFile: "invoice_61356291.pdf"

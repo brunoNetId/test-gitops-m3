@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-provision-{{ .Values.tenant.username }}
+  namespace: {{ .Values.admin.namespace }}
+  labels:
+    {{- include "db-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: s3-provision
+          image: amazon/aws-cli:latest
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ .Values.s3.accessKey }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{ .Values.s3.secretKey }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              S3_ENDPOINT="{{ .Values.s3.endpoint }}"
+              BUCKET="{{ .Values.tenant.username }}"
+              INVOICE_URL="{{ .Values.s3.invoiceUrl }}"
+              INVOICE_FILE="{{ .Values.s3.invoiceFile }}"
+
+              echo "=== S3 provisioning for ${BUCKET} ==="
+
+              # Step 1: Create bucket (idempotent)
+              echo "Creating bucket '${BUCKET}'..."
+              if aws --endpoint-url "$S3_ENDPOINT" --no-verify-ssl s3 mb "s3://${BUCKET}" 2>&1; then
+                echo "Bucket created."
+              else
+                echo "Bucket may already exist (OK)."
+              fi
+
+              # Step 2: Download seed invoice
+              echo "Downloading invoice from ${INVOICE_URL}..."
+              curl -sSL -o "/tmp/${INVOICE_FILE}" "${INVOICE_URL}"
+              echo "Downloaded $(wc -c < /tmp/${INVOICE_FILE}) bytes."
+
+              # Step 3: Upload invoice to bucket
+              echo "Uploading ${INVOICE_FILE} to s3://${BUCKET}/..."
+              aws --endpoint-url "$S3_ENDPOINT" --no-verify-ssl \
+                s3 cp "/tmp/${INVOICE_FILE}" "s3://${BUCKET}/${INVOICE_FILE}" 2>&1
+
+              echo "S3 provisioning complete for ${BUCKET}."

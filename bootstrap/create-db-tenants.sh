@@ -22,6 +22,9 @@ CRED_SECRET_NS="showroom"
 CRED_SECRET_NAME="im-credentials"
 CRED_SECRET_KEY="openshift.json"
 
+NOOBAA_SECRET_NS="openshift-storage"
+NOOBAA_SECRET_NAME="noobaa-admin"
+
 COUNT=1
 DELETE=false
 
@@ -55,6 +58,15 @@ CRED_JSON=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
   -o jsonpath="{.data.${ESCAPED_KEY}}" | base64 -d)
 AVAILABLE_USERS=$(echo "$CRED_JSON" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 echo "Found ${AVAILABLE_USERS} users in credentials Secret."
+
+# Load NooBaa S3 credentials
+echo "Loading NooBaa S3 credentials..."
+S3_ACCESS_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
+  -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+S3_SECRET_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
+  -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+S3_ENDPOINT="https://$(oc get route s3 -n "$NOOBAA_SECRET_NS" -o jsonpath='{.spec.host}')"
+echo "S3 endpoint: ${S3_ENDPOINT}"
 
 if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
   echo "ERROR: Requested ${COUNT} tenants but only ${AVAILABLE_USERS} users available."
@@ -104,6 +116,10 @@ spec:
           password: "${PASSWORD}"
           openshiftUser: ${OC_USER}
           namespacePrefix: "${NAMESPACE_PREFIX}"
+        s3:
+          endpoint: "${S3_ENDPOINT}"
+          accessKey: "${S3_ACCESS_KEY}"
+          secretKey: "${S3_SECRET_KEY}"
   syncPolicy:
     automated:
       prune: true
