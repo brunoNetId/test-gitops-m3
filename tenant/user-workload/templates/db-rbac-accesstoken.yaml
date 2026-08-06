@@ -4,7 +4,7 @@ metadata:
   name: {{ .Values.tenant.openshiftUser }}-accesstoken-creator
   namespace: {{ .Values.sharedDatabase.namespace }}
   labels:
-    {{- include "db-workload.labels" . | nindent 4 }}
+    {{- include "user-workload.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["skupper.io"]
     resources: ["accesstokens"]
@@ -28,7 +28,7 @@ metadata:
   name: {{ .Values.tenant.openshiftUser }}-accesstoken-creator
   namespace: {{ .Values.sharedDatabase.namespace }}
   labels:
-    {{- include "db-workload.labels" . | nindent 4 }}
+    {{- include "user-workload.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

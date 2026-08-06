@@ -4,7 +4,7 @@ metadata:
   name: s3-cleanup-{{ .Values.tenant.username }}
   namespace: {{ .Values.admin.namespace }}
   labels:
-    {{- include "db-workload.labels" . | nindent 4 }}
+    {{- include "user-workload.labels" . | nindent 4 }}
   annotations:
     argocd.argoproj.io/hook: PreDelete
     argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation

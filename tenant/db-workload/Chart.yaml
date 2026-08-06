@@ -1,5 +1,0 @@
-apiVersion: v2
-name: db-workload
-description: Per-user database schema provisioning (standalone test chart)
-type: application
-version: 0.1.0
