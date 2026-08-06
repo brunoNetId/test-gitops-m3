@@ -92,7 +92,7 @@ spec:
 
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Channel '${ROOM_NAME}' created successfully."
-              elif echo "$BODY" | grep -q "already exists"; then
+              elif echo "$BODY" | grep -q "error-duplicate-channel-name"; then
                 echo "Channel '${ROOM_NAME}' already exists (OK)."
               else
                 echo "ERROR: Failed to create channel (HTTP ${HTTP_CODE}): ${BODY}"
