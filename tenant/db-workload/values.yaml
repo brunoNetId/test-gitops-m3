@@ -1,0 +1,14 @@
+tenant:
+  username: ""
+  password: ""
+  openshiftUser: ""
+  namespacePrefix: "m3-"
+
+sharedDatabase:
+  namespace: shared-database-m3
+  adminUser: dbadmin
+  adminPassword: dbadmin123
+  database: labdb
+
+admin:
+  namespace: admin-m3

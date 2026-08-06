@@ -27,3 +27,13 @@ helpdesk:
   enabled: true
   name: helpdesk-m3
   namespace: helpdesk-m3
+
+admin:
+  enabled: true
+  name: admin-m3
+  namespace: admin-m3
+
+sharedDatabase:
+  enabled: true
+  name: shared-database-m3
+  namespace: shared-database-m3
