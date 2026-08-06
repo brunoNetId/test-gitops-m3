@@ -15,7 +15,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: hd-provision
-          image: curlimages/curl:latest
+          image: badouralix/curl-jq:latest
           command:
             - /bin/sh
             - -c
@@ -55,7 +55,7 @@ spec:
               RESPONSE=$(curl -sf "${HD_URL}/api/v1/roles" \
                 -H "accesstoken: ${ACCESS_TOKEN}")
 
-              ROLE_ID=$(echo "$RESPONSE" | sed -n 's/.*"_id":"\([^"]*\)","name":"User".*/\1/p')
+              ROLE_ID=$(echo "$RESPONSE" | jq -r '.roles[]? | select(.name=="User") | ._id' 2>/dev/null)
               if [ -z "$ROLE_ID" ]; then
                 echo "ERROR: Could not find User role"
                 exit 1
@@ -81,12 +81,12 @@ spec:
                 exit 1
               fi
 
-              GROUP_ID=$(echo "$BODY" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+              GROUP_ID=$(echo "$BODY" | jq -r '.group._id // empty' 2>/dev/null)
               if [ -z "$GROUP_ID" ]; then
                 echo "Looking up existing group ID..."
                 RESPONSE=$(curl -sf "${HD_URL}/api/v1/groups/all" \
                   -H "accesstoken: ${ACCESS_TOKEN}")
-                GROUP_ID=$(echo "$RESPONSE" | sed -n "s/.*\"_id\":\"\([^\"]*\)\",\"name\":\"${GROUP_NAME}\".*/\1/p")
+                GROUP_ID=$(echo "$RESPONSE" | jq -r ".groups[]? | select(.name==\"${GROUP_NAME}\") | ._id" 2>/dev/null)
               fi
 
               if [ -z "$GROUP_ID" ]; then
