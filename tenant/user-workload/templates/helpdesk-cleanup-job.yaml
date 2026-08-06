@@ -39,21 +39,11 @@ spec:
               fi
               echo "Admin login successful."
 
-              # --- Step 2: Find and delete user ---
-              echo "Looking up user '${USERNAME}'..."
-              RESPONSE=$(curl -sf "${HD_URL}/api/v1/users?page=0&limit=100" \
-                -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || true)
-
-              USER_ID=$(echo "$RESPONSE" | jq -r ".users[]? | select(.username==\"${USERNAME}\") | ._id" 2>/dev/null)
-
-              if [ -n "$USER_ID" ]; then
-                echo "Deleting user ${USERNAME} (${USER_ID})..."
-                curl -s -o /dev/null -X DELETE "${HD_URL}/api/v1/users/${USER_ID}" \
-                  -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || echo "WARNING: User deletion returned an error (non-fatal)."
-                echo "User deletion done."
-              else
-                echo "User '${USERNAME}' not found — nothing to delete."
-              fi
+              # --- Step 2: Delete user ---
+              echo "Deleting user '${USERNAME}'..."
+              curl -s -o /dev/null -X DELETE "${HD_URL}/api/v1/users/${USERNAME}" \
+                -H "accesstoken: ${ACCESS_TOKEN}" 2>/dev/null || echo "WARNING: User deletion returned an error (non-fatal)."
+              echo "User deletion done."
 
               # --- Step 3: Find and delete group ---
               echo "Looking up group '${GROUP_NAME}'..."
