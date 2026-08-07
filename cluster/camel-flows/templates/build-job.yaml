@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: camel-flows-build
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "camel-flows.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      serviceAccountName: camel-builder
+      restartPolicy: Never
+      containers:
+        - name: builder
+          image: {{ .Values.build.image }}
+          command:
+            - bash
+            - -c
+            - |
+              source ~/.bashrc
+              set -eu
+
+              APPS="m2k r2k k2m k2r"
+
+              # --- Step 1: Install Camel CLI ---
+              echo "Installing Camel CLI (v{{ .Values.build.camelVersion }})..."
+              jbang trust add https://github.com/apache/camel/
+              jbang app install -Dcamel.jbang.version={{ .Values.build.camelVersion }} camel@apache/camel
+              source ~/.bashrc
+              camel plugin add kubernetes
+
+              # --- Step 2: Clone GitOps repo ---
+              echo "Cloning sources..."
+              git clone --branch {{ .Values.build.gitopsBranch }} --depth 1 \
+                {{ .Values.build.gitopsRepo }} /tmp/gitops
+              cd /tmp/gitops/{{ .Values.build.sourcesPath }}
+
+              # --- Step 3: Build each app ---
+              cd flows
+              for APP in $APPS; do
+                echo "Building ${APP}..."
+                camel kubernetes run ${APP}/* \
+                  --name "${APP}" \
+                  --local-kamelet-dir ../kamelets \
+                  --cluster-type openshift
+              done
+
+              # --- Step 4: Scale down build deployments (we only need the images) ---
+              echo "Scaling down build deployments..."
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              KUBE_API="https://kubernetes.default.svc"
+              for APP in $APPS; do
+                curl -sSk -X PATCH \
+                  "$KUBE_API/apis/apps/v1/namespaces/{{ .Values.namespace }}/deployments/${APP}" \
+                  -H "Authorization: Bearer $SA_TOKEN" \
+                  -H "Content-Type: application/merge-patch+json" \
+                  -d '{"spec":{"replicas":0}}' > /dev/null
+                echo "  Scaled down ${APP}"
+              done
+
+              echo "Build complete. Images available in {{ .Values.namespace }}."
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
