@@ -99,7 +99,137 @@ spec:
                 exit 1
               fi
 
-              # --- Step 5: Login as user to get credentials ---
+              # --- Step 5: Create outgoing webhook ---
+              R2K_URL="http://r2k.{{ include "user-workload.namespace" . }}.svc:80/webhook"
+              echo "Creating outgoing webhook for channel '${ROOM_NAME}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${ADMIN_ID}" \
+                -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                -d "{
+                  \"type\": \"webhook-outgoing\",
+                  \"name\": \"${ROOM_NAME} webhook\",
+                  \"event\": \"sendMessage\",
+                  \"enabled\": true,
+                  \"channel\": \"#${ROOM_NAME}\",
+                  \"username\": \"${USERNAME}\",
+                  \"urls\": [\"${R2K_URL}\"],
+                  \"scriptEnabled\": true,
+                  \"script\": \"class Script {process_outgoing_response({ request, response }){return false;}}\"
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "Webhook created successfully."
+              elif echo "$BODY" | grep -q "already exists"; then
+                echo "Webhook already exists (OK)."
+              else
+                echo "WARNING: Webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+              fi
+
+              # --- Step 6: Create AI Bot user ---
+              echo "Creating AI Bot user..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/users.create" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${ADMIN_ID}" \
+                -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                -d "{
+                  \"name\": \"AI Bot\",
+                  \"email\": \"ai-bot@bot.tld\",
+                  \"username\": \"ai-bot\",
+                  \"password\": \"ai-bot\",
+                  \"roles\": [\"bot\"],
+                  \"verified\": true
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "AI Bot user created."
+              elif echo "$BODY" | grep -q "already in use"; then
+                echo "AI Bot user already exists (OK)."
+              else
+                echo "WARNING: AI Bot creation returned HTTP ${HTTP_CODE}: ${BODY}"
+              fi
+
+              # --- Step 7: Create AI Support channel ---
+              AI_CHANNEL="{{ include "user-workload.ai-support-channel" . }}"
+              echo "Creating AI Support channel '${AI_CHANNEL}'..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/groups.create" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${ADMIN_ID}" \
+                -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                -d "{
+                  \"name\": \"${AI_CHANNEL}\",
+                  \"members\": [\"${USERNAME}\", \"ai-bot\"]
+                }")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "AI Support channel '${AI_CHANNEL}' created."
+              elif echo "$BODY" | grep -q "error-duplicate-channel-name"; then
+                echo "AI Support channel '${AI_CHANNEL}' already exists (OK)."
+              else
+                echo "WARNING: AI Support channel creation returned HTTP ${HTTP_CODE}: ${BODY}"
+              fi
+
+              # --- Step 8: Discover workspace service and create AI Support webhook ---
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              NAMESPACE="{{ include "user-workload.namespace" . }}"
+              KUBE_API="https://kubernetes.default.svc"
+
+              echo "Discovering workspace service..."
+              WORKSPACE_SVC=""
+              for i in $(seq 1 30); do
+                SVC_LIST=$(curl -sSk "$KUBE_API/api/v1/namespaces/$NAMESPACE/services" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+                WORKSPACE_SVC=$(echo "$SVC_LIST" | grep -o '"name": "workspace[^"]*"' | head -1 | sed 's/"name": "//;s/"//')
+                if [ -n "$WORKSPACE_SVC" ]; then
+                  break
+                fi
+                echo "  Workspace service not found, retrying in 5s..."
+                sleep 5
+              done
+
+              if [ -z "$WORKSPACE_SVC" ]; then
+                echo "WARNING: Could not find workspace service — skipping AI Support webhook."
+              else
+                WORKSPACE_URL="http://${WORKSPACE_SVC}.${NAMESPACE}.svc.cluster.local:8080/ai-support"
+                echo "Creating AI Support webhook → ${WORKSPACE_URL}"
+                RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
+                  -H 'Content-Type: application/json' \
+                  -H "X-User-Id: ${ADMIN_ID}" \
+                  -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                  -d "{
+                    \"type\": \"webhook-outgoing\",
+                    \"name\": \"${AI_CHANNEL} webhook\",
+                    \"event\": \"sendMessage\",
+                    \"enabled\": true,
+                    \"channel\": \"#${AI_CHANNEL}\",
+                    \"username\": \"ai-bot\",
+                    \"urls\": [\"${WORKSPACE_URL}\"],
+                    \"scriptEnabled\": true,
+                    \"script\": \"class Script {prepare_outgoing_request({request}){if(request.data.bot){return;}return request;}}\"
+                  }")
+
+                HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+                BODY=$(echo "$RESPONSE" | sed '$d')
+
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "AI Support webhook created."
+                elif echo "$BODY" | grep -q "already exists"; then
+                  echo "AI Support webhook already exists (OK)."
+                else
+                  echo "WARNING: AI Support webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+                fi
+              fi
+
+              # --- Step 9: Login as user to get credentials ---
               echo "Logging in as ${USERNAME}..."
               RESPONSE=$(curl -sf "${RC_URL}/api/v1/login" \
                 -H 'Content-Type: application/json' \
@@ -112,11 +242,11 @@ spec:
               fi
               echo "User login successful (userId: ${RC_USER_ID})."
 
-              # --- Step 6: Store credentials in lab-credentials Secret ---
+              # --- Step 10: Store credentials in lab-credentials Secret ---
               echo "Storing RocketChat credentials..."
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               NAMESPACE="{{ include "user-workload.namespace" . }}"
-              JSON_DATA=$(printf '{\n  "userId": "%s",\n  "token": "%s"\n}' "$RC_USER_ID" "$RC_USER_TOKEN")
+              JSON_DATA=$(printf '{\n  "userId": "%s",\n  "token": "%s",\n  "channel": "%s"\n}' "$RC_USER_ID" "$RC_USER_TOKEN" "$ROOM_NAME")
               B64_DATA=$(printf '%s' "$JSON_DATA" | base64 | tr -d '\n')
               HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
                 "https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/lab-credentials" \

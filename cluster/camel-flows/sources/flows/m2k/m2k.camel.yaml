@@ -8,6 +8,7 @@
         room: "{{env:MATRIX_ROOM}}"
         templateId: matrix-source
         token: "{{env:MATRIX_TOKEN}}"
+        synapseUrl: "{{env:MATRIX_SYNAPSE_URL}}"
       steps:
         - filter:
             id: filter-1773

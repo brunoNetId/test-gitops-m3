@@ -31,4 +31,5 @@
               room: "{{env:MATRIX_ROOM}}"
               templateId: matrix-sink
               token: "{{env:MATRIX_TOKEN}}"
+              synapseUrl: "{{env:MATRIX_SYNAPSE_URL}}"
       variableReceive: common

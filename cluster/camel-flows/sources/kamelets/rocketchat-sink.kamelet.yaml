@@ -34,6 +34,7 @@ spec:
     required:
       - userid
       - token
+      - rocketchatUrl
     type: object
     properties:
       userid:
@@ -44,10 +45,15 @@ spec:
         title: Security Token
         description: The RocketChat security token
         type: string
+      rocketchatUrl:
+        title: RocketChat URL
+        description: The RocketChat server base URL
+        type: string
   types:
     out:
       mediaType: application/json
   dependencies:
+  - "camel:http"
   - "camel:kamelet"
   template:
     from:
@@ -65,4 +71,4 @@ spec:
           name: Content-Type
           simple: application/json
       - to:
-          uri: "http://rocketchat.rocketchat.svc:3000/api/v1/chat.postMessage"
+          uri: "{{rocketchatUrl}}/api/v1/chat.postMessage"

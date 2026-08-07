@@ -59,6 +59,10 @@ devworkspace:
   m2VolumeSize: 3Gi
   camelVersion: "4.20.0"
 
+camelFlows:
+  namespace: camel-flows-m3
+  imageTag: "1.0-SNAPSHOT"
+
 s3:
   endpoint: ""
   accessKey: ""

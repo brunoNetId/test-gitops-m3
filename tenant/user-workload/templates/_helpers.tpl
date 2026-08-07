@@ -78,3 +78,10 @@ Derive room name from username — replaces "user" with "room".
 {{- define "user-workload.roomname" -}}
 {{ .Values.tenant.username | replace "user" "room" }}
 {{- end }}
+
+{{/*
+Derive AI support channel name from username — replaces "user" with "ai-support".
+*/}}
+{{- define "user-workload.ai-support-channel" -}}
+{{ .Values.tenant.username | replace "user" "ai-support" }}
+{{- end }}

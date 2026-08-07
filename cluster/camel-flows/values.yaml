@@ -1,8 +1,5 @@
 namespace: camel-flows-m3
 
 build:
-  gitopsRepo: "https://github.com/brunoNetId/test-gitops-m3.git"
-  gitopsBranch: main
-  sourcesPath: cluster/camel-flows/sources
   camelVersion: "4.20.0"
   image: quay.io/devfile/universal-developer-image:ubi10-latest

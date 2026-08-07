@@ -34,5 +34,6 @@
               templateId: rocketchat-sink
               token: "{{env:ROCKETCHAT_TOKEN}}"
               userid: "{{env:ROCKETCHAT_USERID}}"
+              rocketchatUrl: "{{env:ROCKETCHAT_URL}}"
             disabled: false
       variableReceive: common

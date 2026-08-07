@@ -125,3 +125,31 @@ spec:
                 echo "ERROR: Failed to update lab-config (HTTP $HTTP_CODE)"
                 exit 1
               fi
+
+              # --- Step 5: Populate camel-credentials Secret ---
+              echo "Updating camel-credentials Secret..."
+              CAMEL_PATCH=$(jq -rn \
+                --argjson mx "$MX" \
+                --argjson rc "$RC" \
+              '{
+                "stringData": {
+                  "MATRIX_TOKEN": $mx.token,
+                  "MATRIX_ROOM": $mx.room,
+                  "ROCKETCHAT_TOKEN": $rc.token,
+                  "ROCKETCHAT_USERID": $rc.userId,
+                  "ROCKETCHAT_CHANNEL": $rc.channel
+                }
+              }')
+
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                "$KUBE_API/api/v1/namespaces/$NAMESPACE/secrets/camel-credentials" \
+                -H "Authorization: Bearer $SA_TOKEN" \
+                -H "Content-Type: application/merge-patch+json" \
+                -d "$CAMEL_PATCH")
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "camel-credentials Secret updated successfully."
+              else
+                echo "ERROR: Failed to update camel-credentials (HTTP $HTTP_CODE)"
+                exit 1
+              fi

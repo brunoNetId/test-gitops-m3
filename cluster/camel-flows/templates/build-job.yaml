@@ -14,9 +14,25 @@ spec:
     spec:
       serviceAccountName: camel-builder
       restartPolicy: Never
+      volumes:
+        {{- range $app := list "m2k" "r2k" "k2m" "k2r" }}
+        - name: flow-{{ $app }}
+          configMap:
+            name: camel-flow-{{ $app }}
+        {{- end }}
+        - name: kamelets
+          configMap:
+            name: camel-kamelets
       containers:
         - name: builder
           image: {{ .Values.build.image }}
+          volumeMounts:
+            {{- range $app := list "m2k" "r2k" "k2m" "k2r" }}
+            - name: flow-{{ $app }}
+              mountPath: /tmp/sources/flows/{{ $app }}
+            {{- end }}
+            - name: kamelets
+              mountPath: /tmp/sources/kamelets
           command:
             - bash
             - -c
@@ -33,14 +49,12 @@ spec:
               source ~/.bashrc
               camel plugin add kubernetes
 
-              # --- Step 2: Clone GitOps repo ---
-              echo "Cloning sources..."
-              git clone --branch {{ .Values.build.gitopsBranch }} --depth 1 \
-                {{ .Values.build.gitopsRepo }} /tmp/gitops
-              cd /tmp/gitops/{{ .Values.build.sourcesPath }}
+              # --- Step 2: Copy sources to writable directory ---
+              echo "Preparing sources..."
+              cp -r /tmp/sources /tmp/build
+              cd /tmp/build/flows
 
               # --- Step 3: Build each app ---
-              cd flows
               for APP in $APPS; do
                 echo "Building ${APP}..."
                 camel kubernetes run ${APP}/* \

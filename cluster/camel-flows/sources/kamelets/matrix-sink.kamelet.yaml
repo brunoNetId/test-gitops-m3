@@ -34,6 +34,7 @@ spec:
     required:
       - token
       - room
+      - synapseUrl
     type: object
     properties:
       token:
@@ -44,10 +45,15 @@ spec:
         title: Chat Room
         description: The Matrix chat room
         type: string
+      synapseUrl:
+        title: Synapse URL
+        description: The Matrix Synapse server base URL
+        type: string
   types:
     out:
       mediaType: application/json
   dependencies:
+    - "camel:http"
     - "camel:jslt"
     - "camel:kamelet"
   template:
@@ -84,4 +90,4 @@ spec:
           name: Authorization
           simple: Bearer {{token}}
       - toD:
-          uri: "http://synapse.matrix.svc:8008/_matrix/client/v3/rooms/{{room}}/send/m.room.message/${random(999999)}"
+          uri: "{{synapseUrl}}/_matrix/client/v3/rooms/{{room}}/send/m.room.message/${random(999999)}"
