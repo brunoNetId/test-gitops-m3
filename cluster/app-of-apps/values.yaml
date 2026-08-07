@@ -37,3 +37,8 @@ sharedDatabase:
   enabled: true
   name: shared-database-m3
   namespace: shared-database-m3
+
+camelFlows:
+  enabled: true
+  name: camel-flows-m3
+  namespace: camel-flows-m3
