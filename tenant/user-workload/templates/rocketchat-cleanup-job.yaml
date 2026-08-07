@@ -15,7 +15,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: rc-cleanup
-          image: curlimages/curl:latest
+          image: badouralix/curl-jq:latest
           command:
             - /bin/sh
             - -c
@@ -25,6 +25,7 @@ spec:
               ADMIN_PASS="{{ .Values.rocketchat.admin.password }}"
               USERNAME="{{ .Values.tenant.username }}"
               ROOM_NAME="{{ include "user-workload.roomname" . }}"
+              AI_CHANNEL="{{ include "user-workload.ai-support-channel" . }}"
 
               # --- Step 1: Login as admin ---
               echo "Logging in as admin..."
@@ -32,15 +33,48 @@ spec:
                 -H 'Content-Type: application/json' \
                 -d "{\"user\":\"${ADMIN_USER}\",\"password\":\"${ADMIN_PASS}\"}" 2>/dev/null)
 
-              USER_ID=$(echo "$RESPONSE" | sed -n 's/.*"userId":"\([^"]*\)".*/\1/p')
-              AUTH_TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"authToken":"\([^"]*\)".*/\1/p')
-              if [ -z "$AUTH_TOKEN" ]; then
+              USER_ID=$(echo "$RESPONSE" | jq -r '.data.userId')
+              AUTH_TOKEN=$(echo "$RESPONSE" | jq -r '.data.authToken')
+              if [ -z "$AUTH_TOKEN" ] || [ "$AUTH_TOKEN" = "null" ]; then
                 echo "WARNING: Could not get admin token — RocketChat may be unreachable. Skipping cleanup."
                 exit 0
               fi
               echo "Admin login successful."
 
-              # --- Step 2: Delete channel ---
+              # --- Step 2: Delete webhooks for room channel ---
+              echo "Deleting webhooks for channel '${ROOM_NAME}'..."
+              INTEGRATIONS=$(curl -sf "${RC_URL}/api/v1/integrations.list?count=100" \
+                -H "X-User-Id: ${USER_ID}" \
+                -H "X-Auth-Token: ${AUTH_TOKEN}" 2>/dev/null || echo '{"integrations":[]}')
+              WEBHOOK_IDS=$(echo "$INTEGRATIONS" | jq -r \
+                --arg ch "#${ROOM_NAME}" \
+                '.integrations[] | select(.channel[]? == $ch) | ._id')
+              for WH_ID in $WEBHOOK_IDS; do
+                echo "  Removing webhook ${WH_ID}..."
+                curl -s -o /dev/null "${RC_URL}/api/v1/integrations.remove" \
+                  -H 'Content-Type: application/json' \
+                  -H "X-User-Id: ${USER_ID}" \
+                  -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                  -d "{\"type\":\"webhook-outgoing\",\"integrationId\":\"${WH_ID}\"}" 2>/dev/null || true
+              done
+              echo "Room webhooks cleanup done."
+
+              # --- Step 3: Delete webhooks for AI Support channel ---
+              echo "Deleting webhooks for channel '${AI_CHANNEL}'..."
+              AI_WEBHOOK_IDS=$(echo "$INTEGRATIONS" | jq -r \
+                --arg ch "#${AI_CHANNEL}" \
+                '.integrations[] | select(.channel[]? == $ch) | ._id')
+              for WH_ID in $AI_WEBHOOK_IDS; do
+                echo "  Removing webhook ${WH_ID}..."
+                curl -s -o /dev/null "${RC_URL}/api/v1/integrations.remove" \
+                  -H 'Content-Type: application/json' \
+                  -H "X-User-Id: ${USER_ID}" \
+                  -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                  -d "{\"type\":\"webhook-outgoing\",\"integrationId\":\"${WH_ID}\"}" 2>/dev/null || true
+              done
+              echo "AI Support webhooks cleanup done."
+
+              # --- Step 4: Delete room channel ---
               echo "Deleting channel '${ROOM_NAME}'..."
               curl -s -o /dev/null "${RC_URL}/api/v1/groups.delete" \
                 -H 'Content-Type: application/json' \
@@ -49,7 +83,16 @@ spec:
                 -d "{\"roomName\": \"${ROOM_NAME}\"}" 2>/dev/null || echo "WARNING: Channel deletion returned an error (non-fatal)."
               echo "Channel deletion done."
 
-              # --- Step 3: Delete user ---
+              # --- Step 5: Delete AI Support channel ---
+              echo "Deleting AI Support channel '${AI_CHANNEL}'..."
+              curl -s -o /dev/null "${RC_URL}/api/v1/groups.delete" \
+                -H 'Content-Type: application/json' \
+                -H "X-User-Id: ${USER_ID}" \
+                -H "X-Auth-Token: ${AUTH_TOKEN}" \
+                -d "{\"roomName\": \"${AI_CHANNEL}\"}" 2>/dev/null || echo "WARNING: AI Support channel deletion returned an error (non-fatal)."
+              echo "AI Support channel deletion done."
+
+              # --- Step 6: Delete user ---
               echo "Deleting user '${USERNAME}'..."
               curl -s -o /dev/null "${RC_URL}/api/v1/users.delete" \
                 -H 'Content-Type: application/json' \
