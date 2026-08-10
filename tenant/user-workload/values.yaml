@@ -70,6 +70,21 @@ s3:
   invoiceUrl: "https://raw.githubusercontent.com/rh-app-connect-ai/lab-deploy-assets/main/invoices/invoice_61356291.pdf"
   invoiceFile: "invoice_61356291.pdf"
 
+connectivityLink:
+  aiGateway:
+    namespace: ai-gateway-m3
+    gatewayName: internal-ai-gateway
+    gatewayClassName: openshift-default
+  llmApi:
+    namespace: llm-api-m3
+    host: maas-rhdp.apps.maas.redhatworkshops.io
+    serviceName: ai-api-external
+  maasUrl: "https://maas-rhdp.apps.maas.redhatworkshops.io/v1"
+  maasKey: ""
+  silverApiKey: ""
+  goldApiKey: ""
+  kuadrantNamespace: kuadrant-system
+
 argocd:
   syncwave:
     enabled: true

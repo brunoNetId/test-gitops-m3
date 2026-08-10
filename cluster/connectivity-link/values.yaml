@@ -1,0 +1,13 @@
+aiGateway:
+  namespace: ai-gateway-m3
+
+llmApi:
+  namespace: llm-api-m3
+  host: maas-rhdp.apps.maas.redhatworkshops.io
+
+argocd:
+  syncwave:
+    enabled: true
+    namespace: "-1"
+    config: "0"
+    workloads: "1"

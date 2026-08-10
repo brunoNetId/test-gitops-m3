@@ -74,6 +74,20 @@ echo "S3 endpoint: ${S3_ENDPOINT}"
 APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
 echo "Apps domain: ${APPS_DOMAIN}"
 
+# Recover LiteLLM virtual keys from existing Kuadrant Secrets
+echo "Recovering MaaS keys from kuadrant-system..."
+recover_maas_key() {
+  local user="$1"
+  oc get secret "trlp-tutorial-api-key-silver-${user}" -n kuadrant-system \
+    -o jsonpath='{.metadata.annotations.secret\.kuadrant\.io/upstream-token}' 2>/dev/null \
+    | sed 's/^Bearer //'
+}
+
+generate_api_key() {
+  local tier="$1" user="$2"
+  echo "${tier}-${user}-$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 12 || true)"
+}
+
 if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
   echo "ERROR: Requested ${COUNT} tenants but only ${AVAILABLE_USERS} users available."
   exit 1
@@ -104,6 +118,14 @@ else:
   NAMESPACE="${NAMESPACE_PREFIX}${USERNAME}-devspaces"
   APP_NAME="tenant-${USERNAME}-m3"
 
+  MAAS_KEY=$(recover_maas_key "$OC_USER")
+  if [ -z "$MAAS_KEY" ]; then
+    echo "  WARNING: No MaaS key found for ${OC_USER} — CL features will not work."
+    MAAS_KEY=""
+  fi
+  SILVER_API_KEY=$(generate_api_key "silver" "$USERNAME")
+  GOLD_API_KEY=$(generate_api_key "gold" "$USERNAME")
+
   echo "Creating tenant for ${USERNAME} (openshift user: ${OC_USER}, namespace: ${NAMESPACE})..."
 
   cat <<EOF | oc apply -f -
@@ -121,6 +143,11 @@ spec:
     namespace: ${NAMESPACE}
     server: https://kubernetes.default.svc
   project: default
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
   source:
     path: tenant/user-workload
     repoURL: ${REPO_URL}
@@ -138,6 +165,10 @@ spec:
           endpoint: "${S3_ENDPOINT}"
           accessKey: "${S3_ACCESS_KEY}"
           secretKey: "${S3_SECRET_KEY}"
+        connectivityLink:
+          maasKey: "${MAAS_KEY}"
+          silverApiKey: "${SILVER_API_KEY}"
+          goldApiKey: "${GOLD_API_KEY}"
   syncPolicy:
     automated:
       prune: true

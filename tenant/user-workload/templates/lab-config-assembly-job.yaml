@@ -21,6 +21,18 @@ spec:
               value: "https://helpdesk-{{ .Values.helpdesk.namespace }}.{{ .Values.cluster.appsDomain }}"
             - name: MATRIX_URL
               value: "https://element-{{ .Values.matrix.namespace }}.{{ .Values.cluster.appsDomain }}"
+            - name: MAAS_URL
+              value: {{ .Values.connectivityLink.maasUrl | quote }}
+            - name: MAAS_KEY
+              value: {{ .Values.connectivityLink.maasKey | quote }}
+            - name: INTERNAL_AI_GATEWAY_URL
+              value: "http://{{ .Values.connectivityLink.aiGateway.gatewayName }}-{{ .Values.connectivityLink.aiGateway.gatewayClassName }}.{{ .Values.connectivityLink.aiGateway.namespace }}.svc.cluster.local"
+            - name: SILVER_API_KEY
+              value: {{ .Values.connectivityLink.silverApiKey | quote }}
+            - name: GOLD_API_KEY
+              value: {{ .Values.connectivityLink.goldApiKey | quote }}
+            - name: TENANT_USERNAME
+              value: {{ .Values.tenant.username | quote }}
           command:
             - /bin/sh
             - -c
@@ -70,6 +82,12 @@ spec:
                 --argjson hd "$HD" \
                 --arg helpdesk_url "$HELPDESK_URL" \
                 --arg matrix_url "$MATRIX_URL" \
+                --arg maas_url "$MAAS_URL" \
+                --arg maas_key "$MAAS_KEY" \
+                --arg internal_ai_gateway_url "$INTERNAL_AI_GATEWAY_URL" \
+                --arg tenant_username "$TENANT_USERNAME" \
+                --arg silver_api_key "$SILVER_API_KEY" \
+                --arg gold_api_key "$GOLD_API_KEY" \
               '"# Helpdesk (per-user)
               helpdesk_username=\($hd.username)
               helpdesk_password=\($hd.password)
@@ -105,7 +123,23 @@ spec:
               s3_endpoint=\($s3.endpoint)
 
               # S3 (per-user)
-              s3_bucket=\($s3.bucket)"')
+              s3_bucket=\($s3.bucket)
+
+              # MaaS / LLM (shared)
+              maas_url=\($maas_url)
+
+              # MaaS / LLM (per-user)
+              maas_key=\($maas_key)
+
+              # AI Gateway (shared)
+              internal_ai_gateway_url=\($internal_ai_gateway_url)
+
+              # AI Gateway (per-user)
+              internal_ai_http_route_url=\($internal_ai_gateway_url)/\($tenant_username)/v1
+
+              # Kuadrant API keys (per-user)
+              kuadrant_silver_api_key=\($silver_api_key)
+              kuadrant_gold_api_key=\($gold_api_key)"')
 
               echo "Assembled lab-config:"
               echo "$CONFIG"

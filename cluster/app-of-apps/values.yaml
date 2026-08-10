@@ -47,3 +47,12 @@ filestash:
   enabled: true
   name: filestash-m3
   namespace: filestash-m3
+
+connectivityLink:
+  enabled: true
+  name: connectivity-link-m3
+  aiGateway:
+    namespace: ai-gateway-m3
+  llmApi:
+    namespace: llm-api-m3
+    host: maas-rhdp.apps.maas.redhatworkshops.io
