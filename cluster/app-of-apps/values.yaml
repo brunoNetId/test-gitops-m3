@@ -42,3 +42,8 @@ camelFlows:
   enabled: true
   name: camel-flows-m3
   namespace: camel-flows-m3
+
+filestash:
+  enabled: true
+  name: filestash-m3
+  namespace: filestash-m3
