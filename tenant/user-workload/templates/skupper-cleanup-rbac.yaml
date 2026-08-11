@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+  namespace: {{ .Values.sharedDatabase.namespace }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["skupper.io"]
+    resources: ["accesstokens", "links"]
+    resourceNames: ["token-{{ .Values.tenant.openshiftUser }}"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["token-{{ .Values.tenant.openshiftUser }}"]
+    verbs: ["get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+  namespace: {{ .Values.sharedDatabase.namespace }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: {{ include "user-workload.namespace" . }}

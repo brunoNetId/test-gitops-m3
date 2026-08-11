@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: skupper-cleanup-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: skupper-cleanup
+          image: badouralix/curl-jq:latest
+          env:
+            - name: SHARED_DB_NS
+              value: {{ .Values.sharedDatabase.namespace | quote }}
+            - name: OC_USER
+              value: {{ .Values.tenant.openshiftUser | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              KUBE_API="https://kubernetes.default.svc"
+              RESOURCE_NAME="token-${OC_USER}"
+
+              echo "Cleaning up Skupper resources for ${OC_USER} in ${SHARED_DB_NS}..."
+
+              # Delete Link (if student created one)
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$SHARED_DB_NS/links/$RESOURCE_NAME" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "  Deleted link/${RESOURCE_NAME}"
+              elif [ "$HTTP_CODE" = "404" ]; then
+                echo "  link/${RESOURCE_NAME} not found (student may not have created it)"
+              else
+                echo "  WARNING: Failed to delete link/${RESOURCE_NAME} (HTTP $HTTP_CODE)"
+              fi
+
+              # Delete AccessToken (if student created one)
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$SHARED_DB_NS/accesstokens/$RESOURCE_NAME" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "  Deleted accesstoken/${RESOURCE_NAME}"
+              elif [ "$HTTP_CODE" = "404" ]; then
+                echo "  accesstoken/${RESOURCE_NAME} not found (student may not have created it)"
+              else
+                echo "  WARNING: Failed to delete accesstoken/${RESOURCE_NAME} (HTTP $HTTP_CODE)"
+              fi
+
+              # Delete companion Secret (if Skupper controller didn't clean it up)
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                "$KUBE_API/api/v1/namespaces/$SHARED_DB_NS/secrets/$RESOURCE_NAME" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "  Deleted secret/${RESOURCE_NAME}"
+              elif [ "$HTTP_CODE" = "404" ]; then
+                echo "  secret/${RESOURCE_NAME} not found (already cleaned up)"
+              else
+                echo "  WARNING: Failed to delete secret/${RESOURCE_NAME} (HTTP $HTTP_CODE)"
+              fi
+
+              echo "Skupper cleanup complete."
