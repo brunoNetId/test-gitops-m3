@@ -56,3 +56,8 @@ connectivityLink:
   llmApi:
     namespace: llm-api-m3
     host: maas-rhdp.apps.maas.redhatworkshops.io
+
+showroom:
+  enabled: true
+  name: showroom-m3
+  namespace: showroom-m3
