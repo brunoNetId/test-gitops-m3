@@ -1,3 +1,7 @@
+gatewayClass:
+  name: openshift-default
+  controllerName: openshift.io/gateway-controller/v1
+
 aiGateway:
   namespace: ai-gateway
 
@@ -9,5 +13,6 @@ argocd:
   syncwave:
     enabled: true
     namespace: "-1"
+    gatewayclass: "0"
     config: "0"
     workloads: "1"

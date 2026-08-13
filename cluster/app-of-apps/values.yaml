@@ -12,10 +12,6 @@ catalogSource:
 cluster:
   subdomain: apps.cluster-szc5l.dyn.redhatworkshops.io
 
-serviceMesh:
-  enabled: true
-  name: service-mesh-m3
-
 kafkaInstance:
   enabled: false
   name: kafka-instance

@@ -1,5 +1,0 @@
-apiVersion: v2
-name: service-mesh-operator
-description: Installs OpenShift Service Mesh 3.x (Istio) via OLM
-type: application
-version: 0.1.0

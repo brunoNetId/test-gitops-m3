@@ -2,7 +2,8 @@ namespace: kuadrant-system
 
 subscription:
   channel: stable
-  installPlanApproval: Automatic
+  installPlanApproval: Manual
+  startingCSV: rhcl-operator.v1.4.2
   name: rhcl-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace

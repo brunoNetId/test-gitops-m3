@@ -41,6 +41,15 @@ argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.config }}"
 {{- end }}
 
 {{/*
+ArgoCD sync-wave for GatewayClass
+*/}}
+{{- define "connectivity-link.gatewayclass-syncwave" -}}
+{{- if and (.Values.argocd) (.Values.argocd.syncwave) (.Values.argocd.syncwave.enabled) -}}
+argocd.argoproj.io/sync-wave: "{{ .Values.argocd.syncwave.gatewayclass }}"
+{{- end }}
+{{- end }}
+
+{{/*
 ArgoCD sync-wave for workloads (Gateway)
 */}}
 {{- define "connectivity-link.workloads-syncwave" -}}
