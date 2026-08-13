@@ -1,4 +1,15 @@
 {{/*
+Operator catalog source — returns snapshot name when enabled, live catalog otherwise.
+*/}}
+{{- define "app-of-apps.operatorSource" -}}
+{{- if .Values.catalogSource.enabled -}}
+{{ .Values.catalogSource.name }}
+{{- else -}}
+redhat-operators
+{{- end -}}
+{{- end -}}
+
+{{/*
 Common sync policy for child Applications.
 Provides automated sync with prune, selfHeal, retry with backoff, and standard syncOptions.
 */}}

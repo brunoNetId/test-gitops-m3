@@ -1,0 +1,16 @@
+namespace: kuadrant-system
+
+subscription:
+  channel: stable
+  installPlanApproval: Automatic
+  name: rhcl-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+
+argocd:
+  syncwave:
+    enabled: true
+    namespace: "-1"
+    operatorgroup: "0"
+    subscription: "0"
+    instance: "2"

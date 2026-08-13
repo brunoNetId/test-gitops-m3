@@ -5,8 +5,21 @@ gitops:
 argocd:
   namespace: openshift-gitops
 
+catalogSource:
+  enabled: false
+  name: redhat-operators-snapshot
+
 cluster:
   subdomain: apps.cluster-szc5l.dyn.redhatworkshops.io
+
+serviceMeshOperator:
+  enabled: true
+  name: service-mesh-operator-m3
+
+kuadrantOperator:
+  enabled: true
+  name: kuadrant-operator-m3
+  namespace: kuadrant-system
 
 kafkaInstance:
   enabled: false
