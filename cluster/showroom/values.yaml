@@ -22,7 +22,7 @@ docserver:
   image: "quay.io/devfile/universal-developer-image:ubi10-latest"
   camelVersion: "4.16.0"
   tenant:
-    namespacePrefix: "m3-"
+    namespacePrefix: ""
     namespaceSuffix: "-devspaces"
 
 argocd:
