@@ -74,14 +74,13 @@ echo "S3 endpoint: ${S3_ENDPOINT}"
 APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
 echo "Apps domain: ${APPS_DOMAIN}"
 
-# Recover LiteLLM virtual keys from existing Kuadrant Secrets
-echo "Recovering MaaS keys from kuadrant-system..."
-recover_maas_key() {
-  local user="$1"
-  oc get secret "trlp-tutorial-api-key-silver-${user}" -n kuadrant-system \
-    -o jsonpath='{.metadata.annotations.secret\.kuadrant\.io/upstream-token}' 2>/dev/null \
-    | sed 's/^Bearer //'
-}
+# Load MaaS key from lab-credentials
+echo "Loading MaaS key..."
+MAAS_KEY=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
+  -o jsonpath='{.data.maas-key}' 2>/dev/null | base64 -d)
+if [ -z "$MAAS_KEY" ]; then
+  echo "  WARNING: No MaaS key found in ${CRED_SECRET_NAME} — CL features will not work."
+fi
 
 generate_api_key() {
   local tier="$1" user="$2"
@@ -118,11 +117,6 @@ else:
   NAMESPACE="${NAMESPACE_PREFIX}${USERNAME}-devspaces"
   APP_NAME="tenant-${USERNAME}-m3"
 
-  MAAS_KEY=$(recover_maas_key "$OC_USER")
-  if [ -z "$MAAS_KEY" ]; then
-    echo "  WARNING: No MaaS key found for ${OC_USER} — CL features will not work."
-    MAAS_KEY=""
-  fi
   SILVER_API_KEY=$(generate_api_key "silver" "$USERNAME")
   GOLD_API_KEY=$(generate_api_key "gold" "$USERNAME")
 
