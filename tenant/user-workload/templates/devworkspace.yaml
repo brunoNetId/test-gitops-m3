@@ -8,7 +8,7 @@ metadata:
 spec:
   contributions:
     - name: ide
-      uri: http://devspaces-dashboard.devspaces.svc.cluster.local:8080/dashboard/api/editors/devfile?che-editor=che-incubator/che-code/latest
+      uri: http://devspaces-dashboard.{{ .Values.devspaces.namespace }}.svc.cluster.local:8080/dashboard/api/editors/devfile?che-editor=che-incubator/che-code/latest
   routingClass: che
   started: true
   template:

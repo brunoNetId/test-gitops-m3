@@ -50,6 +50,9 @@ admin:
 cluster:
   appsDomain: ""
 
+devspaces:
+  namespace: openshift-devspaces
+
 devworkspace:
   name: camel-lab
   gitRepo: "https://github.com/rh-app-connect-ai/devspaces-workspace"
