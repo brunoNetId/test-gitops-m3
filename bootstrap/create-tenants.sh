@@ -13,7 +13,7 @@ set -euo pipefail
 REPO_URL="https://github.com/brunoNetId/test-gitops-m3.git"
 TARGET_REVISION="main"
 ARGOCD_NS="openshift-gitops"
-NAMESPACE_PREFIX="m3-"
+NAMESPACE_PREFIX=""
 LABEL_KEY="app.kubernetes.io/part-of"
 LABEL_VALUE="tenant-m3"
 LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
