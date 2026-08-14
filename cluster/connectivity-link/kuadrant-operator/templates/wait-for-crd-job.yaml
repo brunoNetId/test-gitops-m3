@@ -4,7 +4,7 @@ metadata:
   name: kuadrant-wait
   namespace: {{ .Values.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "0"
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 ---
@@ -13,7 +13,7 @@ kind: ClusterRole
 metadata:
   name: kuadrant-wait-crd-check
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "0"
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 rules:
@@ -29,7 +29,7 @@ kind: ClusterRoleBinding
 metadata:
   name: kuadrant-wait-crd-check
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "0"
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 roleRef:
@@ -47,7 +47,7 @@ metadata:
   name: kuadrant-wait-for-crd
   namespace: {{ .Values.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "0"
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
