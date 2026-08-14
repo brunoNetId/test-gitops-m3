@@ -37,6 +37,10 @@ admin:
   name: admin-m3
   namespace: admin-m3
 
+serviceInterconnect:
+  enabled: true
+  name: service-interconnect-m3
+
 sharedDatabase:
   enabled: true
   name: shared-database-m3

@@ -18,8 +18,8 @@ LABEL_KEY="app.kubernetes.io/part-of"
 LABEL_VALUE="tenant-m3"
 LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
 
-CRED_SECRET_NS="showroom"
-CRED_SECRET_NAME="im-credentials"
+CRED_SECRET_NS="admin-m3"
+CRED_SECRET_NAME="lab-credentials"
 CRED_SECRET_KEY="openshift.json"
 
 NOOBAA_SECRET_NS="openshift-storage"
