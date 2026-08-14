@@ -10,7 +10,7 @@ catalogSource:
   name: redhat-operators-snapshot
 
 cluster:
-  subdomain: apps.cluster-szc5l.dyn.redhatworkshops.io
+  subdomain: ""
 
 kafkaInstance:
   enabled: false
