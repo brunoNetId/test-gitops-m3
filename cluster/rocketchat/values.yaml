@@ -1,4 +1,4 @@
-namespace: rocketchat-m3
+namespace: rocketchat
 
 cluster:
   subdomain: ""

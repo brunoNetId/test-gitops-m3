@@ -30,6 +30,27 @@ spec:
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               KUBE_API="https://kubernetes.default.svc"
               RESOURCE_NAME="token-${OC_USER}"
+              TENANT_NS="{{ include "user-workload.namespace" . }}"
+
+              echo "Cleaning up Skupper Site in ${TENANT_NS}..."
+
+              # Delete all Sites in the tenant namespace (cascades to router, routes, services)
+              SITES=$(curl -sSk \
+                "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/sites" \
+                -H "Authorization: Bearer $SA_TOKEN" | jq -r '.items[].metadata.name // empty' 2>/dev/null)
+              for SITE in $SITES; do
+                HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                  "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/sites/$SITE" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  Deleted site/${SITE}"
+                else
+                  echo "  WARNING: Failed to delete site/${SITE} (HTTP $HTTP_CODE)"
+                fi
+              done
+              if [ -z "$SITES" ]; then
+                echo "  No Sites found (student may not have created one)"
+              fi
 
               echo "Cleaning up Skupper resources for ${OC_USER} in ${SHARED_DB_NS}..."
 

@@ -1,4 +1,4 @@
-namespace: filestash-m3
+namespace: filestash
 
 cluster:
   subdomain: ""

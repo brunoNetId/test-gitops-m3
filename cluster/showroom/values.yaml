@@ -1,4 +1,4 @@
-namespace: showroom-m3
+namespace: showroom
 
 cluster:
   subdomain: ""

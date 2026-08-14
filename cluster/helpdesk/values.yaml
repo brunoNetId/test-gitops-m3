@@ -1,4 +1,4 @@
-namespace: helpdesk-m3
+namespace: helpdesk
 
 cluster:
   subdomain: ""

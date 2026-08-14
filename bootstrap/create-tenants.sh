@@ -74,12 +74,19 @@ echo "S3 endpoint: ${S3_ENDPOINT}"
 APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
 echo "Apps domain: ${APPS_DOMAIN}"
 
-# Load MaaS key from lab-credentials
-echo "Loading MaaS key..."
+# Load MaaS settings from lab-credentials
+echo "Loading MaaS settings..."
 MAAS_KEY=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
   -o jsonpath='{.data.maas-key}' 2>/dev/null | base64 -d)
+MAAS_URL=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
+  -o jsonpath='{.data.maas-url}' 2>/dev/null | base64 -d)
+MAAS_HOST=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
+  -o jsonpath='{.data.maas-host}' 2>/dev/null | base64 -d)
 if [ -z "$MAAS_KEY" ]; then
   echo "  WARNING: No MaaS key found in ${CRED_SECRET_NAME} — CL features will not work."
+fi
+if [ -z "$MAAS_URL" ] || [ -z "$MAAS_HOST" ]; then
+  echo "  WARNING: MaaS URL/host missing in ${CRED_SECRET_NAME} — CL features will not work."
 fi
 
 generate_api_key() {
@@ -160,9 +167,12 @@ spec:
           accessKey: "${S3_ACCESS_KEY}"
           secretKey: "${S3_SECRET_KEY}"
         connectivityLink:
+          maasUrl: "${MAAS_URL}"
           maasKey: "${MAAS_KEY}"
           silverApiKey: "${SILVER_API_KEY}"
           goldApiKey: "${GOLD_API_KEY}"
+          llmApi:
+            host: "${MAAS_HOST}"
   syncPolicy:
     automated:
       prune: true

@@ -1,4 +1,4 @@
-namespace: camel-flows-m3
+namespace: camel-flows
 
 build:
   camelVersion: "4.20.0"

@@ -20,26 +20,26 @@ kafka:
     minInsyncReplicas: 1
 
 matrix:
-  namespace: matrix-m3
+  namespace: matrix
   serverName: rhintegration.demo
   admin:
     username: admin
     password: admin
 
 rocketchat:
-  namespace: rocketchat-m3
+  namespace: rocketchat
   admin:
     username: rcadmin
     password: camel
 
 helpdesk:
-  namespace: helpdesk-m3
+  namespace: helpdesk
   admin:
     username: admin
     password: "Openshift1!"
 
 sharedDatabase:
-  namespace: shared-database-m3
+  namespace: shared-database
   adminUser: dbadmin
   adminPassword: dbadmin123
   database: labdb
@@ -63,7 +63,7 @@ devworkspace:
   camelVersion: "4.20.0"
 
 camelFlows:
-  namespace: camel-flows-m3
+  namespace: camel-flows
   imageTag: "1.0-SNAPSHOT"
 
 s3:
@@ -75,14 +75,14 @@ s3:
 
 connectivityLink:
   aiGateway:
-    namespace: ai-gateway-m3
+    namespace: ai-gateway
     gatewayName: internal-ai-gateway
     gatewayClassName: openshift-default
   llmApi:
-    namespace: llm-api-m3
-    host: maas-rhdp.apps.maas.redhatworkshops.io
+    namespace: llm-api
+    host: ""
     serviceName: ai-api-external
-  maasUrl: "https://maas-rhdp.apps.maas.redhatworkshops.io/v1"
+  maasUrl: ""
   maasKey: ""
   silverApiKey: ""
   goldApiKey: ""

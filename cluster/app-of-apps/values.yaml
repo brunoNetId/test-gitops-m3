@@ -19,18 +19,18 @@ kafkaInstance:
 
 matrix:
   enabled: true
-  name: matrix-m3
-  namespace: matrix-m3
+  name: matrix
+  namespace: matrix
 
 rocketchat:
   enabled: true
-  name: rocketchat-m3
-  namespace: rocketchat-m3
+  name: rocketchat
+  namespace: rocketchat
 
 helpdesk:
   enabled: true
-  name: helpdesk-m3
-  namespace: helpdesk-m3
+  name: helpdesk
+  namespace: helpdesk
 
 admin:
   enabled: true
@@ -39,33 +39,33 @@ admin:
 
 serviceInterconnect:
   enabled: true
-  name: service-interconnect-m3
+  name: service-interconnect
 
 sharedDatabase:
   enabled: true
-  name: shared-database-m3
-  namespace: shared-database-m3
+  name: shared-database
+  namespace: shared-database
 
 camelFlows:
   enabled: true
-  name: camel-flows-m3
-  namespace: camel-flows-m3
+  name: camel-flows
+  namespace: camel-flows
 
 filestash:
   enabled: true
-  name: filestash-m3
-  namespace: filestash-m3
+  name: filestash
+  namespace: filestash
 
 connectivityLink:
   enabled: true
-  name: connectivity-link-m3
+  name: connectivity-link
   aiGateway:
-    namespace: ai-gateway-m3
+    namespace: ai-gateway
   llmApi:
-    namespace: llm-api-m3
+    namespace: llm-api
     host: ""
 
 showroom:
   enabled: true
-  name: showroom-m3
-  namespace: showroom-m3
+  name: showroom
+  namespace: showroom

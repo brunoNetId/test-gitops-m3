@@ -30,3 +30,31 @@ subjects:
   - kind: ServiceAccount
     name: default
     namespace: {{ include "user-workload.namespace" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["skupper.io"]
+    resources: ["sites"]
+    verbs: ["list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.tenant.username }}-skupper-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: {{ include "user-workload.namespace" . }}

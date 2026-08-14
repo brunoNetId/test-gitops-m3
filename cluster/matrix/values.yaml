@@ -1,4 +1,4 @@
-namespace: matrix-m3
+namespace: matrix
 
 cluster:
   subdomain: ""
