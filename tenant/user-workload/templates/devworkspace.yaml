@@ -30,7 +30,7 @@ spec:
           component: tools
         id: setup-lab-default
       - exec:
-          commandLine: 'cp /projects/workshop/tools/solution/steps/7/mcp-servers/camel-quarkus/settings.xml $HOME/.m2'
+          commandLine: 'cp -n /projects/workshop/tools/solution/steps/7/mcp-servers/camel-quarkus/settings.xml $HOME/.m2'
           component: tools
         id: config-settings-snapshot
     components:

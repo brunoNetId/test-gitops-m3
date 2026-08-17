@@ -18,9 +18,7 @@ LABEL_KEY="app.kubernetes.io/part-of"
 LABEL_VALUE="tenant-m3"
 LABEL_SELECTOR="${LABEL_KEY}=${LABEL_VALUE}"
 
-CRED_SECRET_NS="admin-m3"
-CRED_SECRET_NAME="lab-credentials"
-CRED_SECRET_KEY="openshift.json"
+PARENT_APP="app-of-apps"
 
 NOOBAA_SECRET_NS="openshift-storage"
 NOOBAA_SECRET_NAME="noobaa-admin"
@@ -53,72 +51,47 @@ if $DELETE; then
   exit 0
 fi
 
-# Load OpenShift credentials
-echo "Loading OpenShift credentials..."
-ESCAPED_KEY=$(echo "$CRED_SECRET_KEY" | sed 's/\./\\./g')
-CRED_JSON=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
-  -o jsonpath="{.data.${ESCAPED_KEY}}" | base64 -d)
-AVAILABLE_USERS=$(echo "$CRED_JSON" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
-echo "Found ${AVAILABLE_USERS} users in credentials Secret."
+# Load values from parent app-of-apps
+echo "Loading values from parent app-of-apps..."
+PARENT_VALUES=$(oc get application "$PARENT_APP" -n "$ARGOCD_NS" \
+  -o jsonpath='{.spec.source.helm.valuesObject}')
+ANSIBLE_INPUT_PASSWORD=$(echo "$PARENT_VALUES" | python3 -c "import sys,json; print(json.load(sys.stdin)['common']['password'])")
+ANSIBLE_INPUT_MAAS_KEY=$(echo "$PARENT_VALUES" | python3 -c "import sys,json; print(json.load(sys.stdin)['vault']['secrets']['litellm']['apiKey'])")
+ANSIBLE_INPUT_MAAS_URL=$(echo "$PARENT_VALUES" | python3 -c "import sys,json; print(json.load(sys.stdin)['vault']['secrets']['litellm']['apiUrl'])")
+ANSIBLE_INPUT_MAAS_HOST=$(echo "$ANSIBLE_INPUT_MAAS_URL" | sed 's|https://||; s|/v1||')
+echo "  Password: (loaded)"
+echo "  MaaS URL: ${ANSIBLE_INPUT_MAAS_URL}"
+echo "  MaaS host: ${ANSIBLE_INPUT_MAAS_HOST}"
 
 # Load NooBaa S3 credentials
 echo "Loading NooBaa S3 credentials..."
-S3_ACCESS_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
+ANSIBLE_INPUT_S3_ACCESS_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
   -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
-S3_SECRET_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
+ANSIBLE_INPUT_S3_SECRET_KEY=$(oc get secret "$NOOBAA_SECRET_NAME" -n "$NOOBAA_SECRET_NS" \
   -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
-S3_ENDPOINT="https://$(oc get route s3 -n "$NOOBAA_SECRET_NS" -o jsonpath='{.spec.host}')"
-echo "S3 endpoint: ${S3_ENDPOINT}"
+ANSIBLE_INPUT_S3_ENDPOINT="https://$(oc get route s3 -n "$NOOBAA_SECRET_NS" -o jsonpath='{.spec.host}')"
+echo "S3 endpoint: ${ANSIBLE_INPUT_S3_ENDPOINT}"
 
 # Detect cluster apps domain
-APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
-echo "Apps domain: ${APPS_DOMAIN}"
-
-# Load MaaS settings from lab-credentials
-echo "Loading MaaS settings..."
-MAAS_KEY=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
-  -o jsonpath='{.data.maas-key}' 2>/dev/null | base64 -d)
-MAAS_URL=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
-  -o jsonpath='{.data.maas-url}' 2>/dev/null | base64 -d)
-MAAS_HOST=$(oc get secret "$CRED_SECRET_NAME" -n "$CRED_SECRET_NS" \
-  -o jsonpath='{.data.maas-host}' 2>/dev/null | base64 -d)
-if [ -z "$MAAS_KEY" ]; then
-  echo "  WARNING: No MaaS key found in ${CRED_SECRET_NAME} — CL features will not work."
-fi
-if [ -z "$MAAS_URL" ] || [ -z "$MAAS_HOST" ]; then
-  echo "  WARNING: MaaS URL/host missing in ${CRED_SECRET_NAME} — CL features will not work."
-fi
+ANSIBLE_INPUT_APPS_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
+echo "Apps domain: ${ANSIBLE_INPUT_APPS_DOMAIN}"
 
 generate_api_key() {
   local tier="$1" user="$2"
   echo "${tier}-${user}-$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 12 || true)"
 }
 
-if [ "$COUNT" -gt "$AVAILABLE_USERS" ]; then
-  echo "ERROR: Requested ${COUNT} tenants but only ${AVAILABLE_USERS} users available."
-  exit 1
-fi
-
 generate_id() {
   LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 5 || true
 }
 
 for i in $(seq 1 "$COUNT"); do
-  OC_USER="user${i}"
-  PASSWORD=$(echo "$CRED_JSON" | python3 -c "
-import sys, json
-users = json.load(sys.stdin)
-match = next((u['password'] for u in users if u['name'] == '${OC_USER}'), None)
-if match:
-    print(match)
-else:
-    sys.exit(1)
-")
+  ANSIBLE_INPUT_USERNAME="user${i}"
 
   if $RANDOM_ID; then
     USERNAME="user-$(generate_id)"
   else
-    USERNAME="$OC_USER"
+    USERNAME="$ANSIBLE_INPUT_USERNAME"
   fi
 
   NAMESPACE="${NAMESPACE_PREFIX}${USERNAME}-devspaces"
@@ -127,7 +100,7 @@ else:
   SILVER_API_KEY=$(generate_api_key "silver" "$USERNAME")
   GOLD_API_KEY=$(generate_api_key "gold" "$USERNAME")
 
-  echo "Creating tenant for ${USERNAME} (openshift user: ${OC_USER}, namespace: ${NAMESPACE})..."
+  echo "Creating tenant for ${USERNAME} (openshift user: ${ANSIBLE_INPUT_USERNAME}, namespace: ${NAMESPACE})..."
 
   cat <<EOF | oc apply -f -
 apiVersion: argoproj.io/v1alpha1
@@ -149,6 +122,10 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: workspace.devfile.io
+      kind: DevWorkspace
+      jsonPointers:
+        - /spec
   source:
     path: tenant/user-workload
     repoURL: ${REPO_URL}
@@ -157,22 +134,22 @@ spec:
       valuesObject:
         tenant:
           username: ${USERNAME}
-          password: "${PASSWORD}"
-          openshiftUser: ${OC_USER}
+          password: "${ANSIBLE_INPUT_PASSWORD}"
+          openshiftUser: ${ANSIBLE_INPUT_USERNAME}
           namespacePrefix: "${NAMESPACE_PREFIX}"
         cluster:
-          appsDomain: "${APPS_DOMAIN}"
+          appsDomain: "${ANSIBLE_INPUT_APPS_DOMAIN}"
         s3:
-          endpoint: "${S3_ENDPOINT}"
-          accessKey: "${S3_ACCESS_KEY}"
-          secretKey: "${S3_SECRET_KEY}"
+          endpoint: "${ANSIBLE_INPUT_S3_ENDPOINT}"
+          accessKey: "${ANSIBLE_INPUT_S3_ACCESS_KEY}"
+          secretKey: "${ANSIBLE_INPUT_S3_SECRET_KEY}"
         connectivityLink:
-          maasUrl: "${MAAS_URL}"
-          maasKey: "${MAAS_KEY}"
+          maasUrl: "${ANSIBLE_INPUT_MAAS_URL}"
+          maasKey: "${ANSIBLE_INPUT_MAAS_KEY}"
           silverApiKey: "${SILVER_API_KEY}"
           goldApiKey: "${GOLD_API_KEY}"
           llmApi:
-            host: "${MAAS_HOST}"
+            host: "${ANSIBLE_INPUT_MAAS_HOST}"
   syncPolicy:
     automated:
       prune: true
