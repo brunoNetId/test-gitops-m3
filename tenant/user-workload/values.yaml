@@ -55,7 +55,7 @@ devspaces:
 
 devworkspace:
   name: camel-lab
-  gitRepo: "https://github.com/rh-app-connect-ai/devspaces-workspace"
+  gitRepo: "https://github.com/openshift-dev-days/module3-dev-workspace.git"
   gitBranch: main
   image: quay.io/devfile/universal-developer-image:ubi10-latest
   memoryLimit: 3Gi

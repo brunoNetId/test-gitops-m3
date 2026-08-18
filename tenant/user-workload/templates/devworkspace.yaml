@@ -13,6 +13,10 @@ spec:
   started: true
   template:
     attributes:
+      controller.devfile.io/devworkspace-config:
+        name: devworkspace-config
+        namespace: openshift-devspaces
+      controller.devfile.io/scc: container-run
       controller.devfile.io/storage-type: per-workspace
     commands:
       - exec:
@@ -58,6 +62,8 @@ spec:
             {{- end }}
             - name: VSCODE_TRUSTED_EXTENSIONS
               value: "redhat.vscode-kaoto"
+            - name: HOST_USERS
+              value: 'false'
           image: {{ .Values.devworkspace.image }}
           memoryLimit: {{ .Values.devworkspace.memoryLimit }}
           sourceMapping: /projects
