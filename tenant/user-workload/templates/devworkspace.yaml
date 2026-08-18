@@ -20,6 +20,10 @@ spec:
       controller.devfile.io/storage-type: per-workspace
     commands:
       - exec:
+          commandLine: 'mkdir -p /home/user/.kube'
+          component: tools
+        id: init-kube
+      - exec:
           commandLine: >-
             source ~/.bashrc &&
             jbang trust add https://github.com/apache/camel/ &&
@@ -76,6 +80,7 @@ spec:
           size: {{ .Values.devworkspace.m2VolumeSize }}
     events:
       postStart:
+        - init-kube
         - set-camel-cli
         - setup-lab-default
         - config-settings-snapshot
