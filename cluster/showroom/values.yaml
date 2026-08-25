@@ -19,8 +19,7 @@ proxy:
     nginx: "nginxinc/nginx-unprivileged:alpine"
 
 docserver:
-  image: "quay.io/devfile/universal-developer-image:ubi10-latest"
-  camelVersion: "4.16.0"
+  image: "image-registry.openshift-image-registry.svc:5000/workspace-images/app-connect-ai:latest"
   tenant:
     namespacePrefix: ""
     namespaceSuffix: "-devspaces"

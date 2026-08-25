@@ -37,14 +37,6 @@ spec:
               set -e
               source ~/.bashrc
 
-              echo "=== Installing Camel JBang {{ .Values.docserver.camelVersion }} ==="
-              jbang trust add https://github.com/apache/camel/
-              jbang app install -Dcamel.jbang.version={{ .Values.docserver.camelVersion }} camel@apache/camel
-
-              echo "=== Installing Kubernetes plugin ==="
-              export PATH="$HOME/.jbang/bin:$PATH"
-              jbang camel@apache/camel plugin add kubernetes
-
               echo "=== Deploying docserver ==="
               cp /app/docs.camel.yaml /tmp/docs.camel.yaml
               cd /tmp

@@ -1,5 +1,4 @@
 namespace: camel-flows
 
 build:
-  camelVersion: "4.20.0"
-  image: quay.io/devfile/universal-developer-image:ubi10-latest
+  image: image-registry.openshift-image-registry.svc:5000/workspace-images/app-connect-ai:latest

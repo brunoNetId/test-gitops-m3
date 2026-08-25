@@ -42,19 +42,12 @@ spec:
 
               APPS="m2k r2k k2m k2r"
 
-              # --- Step 1: Install Camel CLI ---
-              echo "Installing Camel CLI (v{{ .Values.build.camelVersion }})..."
-              jbang trust add https://github.com/apache/camel/
-              jbang app install -Dcamel.jbang.version={{ .Values.build.camelVersion }} camel@apache/camel
-              source ~/.bashrc
-              camel plugin add kubernetes
-
-              # --- Step 2: Copy sources to writable directory ---
+              # --- Step 1: Copy sources to writable directory ---
               echo "Preparing sources..."
               cp -r /tmp/sources /tmp/build
               cd /tmp/build/flows
 
-              # --- Step 3: Build each app ---
+              # --- Step 2: Build each app ---
               for APP in $APPS; do
                 echo "Building ${APP}..."
                 camel kubernetes run ${APP}/* \
@@ -63,7 +56,7 @@ spec:
                   --cluster-type openshift
               done
 
-              # --- Step 4: Scale down build deployments (we only need the images) ---
+              # --- Step 3: Scale down build deployments (we only need the images) ---
               echo "Scaling down build deployments..."
               SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               KUBE_API="https://kubernetes.default.svc"
