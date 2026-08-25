@@ -57,10 +57,11 @@ devworkspace:
   name: camel-lab
   gitRepo: "https://github.com/openshift-dev-days/module3-dev-workspace.git"
   gitBranch: main
-  image: quay.io/devfile/universal-developer-image:ubi10-latest
+  image: image-registry.openshift-image-registry.svc:5000/workspace-images/app-connect-ai:latest
   memoryLimit: 3Gi
   m2VolumeSize: 3Gi
-  camelVersion: "4.20.0"
+  prepWorkspace:
+    image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
 
 camelFlows:
   namespace: camel-flows

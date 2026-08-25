@@ -19,28 +19,14 @@ spec:
       controller.devfile.io/scc: container-run
       controller.devfile.io/storage-type: per-workspace
     commands:
+      - apply:
+          component: prep-workspace
+          label: Pre Start Prep
+        id: prep-workspace
       - exec:
-          commandLine: 'mkdir -p /home/user/.kube'
-          component: tools
-        id: init-kube
-      - exec:
-          commandLine: >-
-            source ~/.bashrc &&
-            jbang trust add https://github.com/apache/camel/ &&
-            jbang app install -Dcamel.jbang.version={{ .Values.devworkspace.camelVersion }} camel@apache/camel &&
-            jbang camel@apache/camel plugin add kubernetes &&
-            jbang camel@apache/camel plugin add forage --gav io.kaoto.forage:camel-jbang-plugin-forage:1.5.0-SNAPSHOT &&
-            jbang camel@apache/camel plugin get
-          component: tools
-        id: set-camel-cli
-      - exec:
-          commandLine: 'echo -e "export LAB_SCRIPTS=/projects/workshop/tools/scripts\nexport PATH=\$LAB_SCRIPTS:\$PATH\nsource setup" >> ~/.bashrc'
+          commandLine: 'source ~/.bashrc && echo -e "export LAB_SCRIPTS=/projects/workshop/tools/scripts\nexport PATH=\$LAB_SCRIPTS:\$PATH\nsource setup" >> ~/.bashrc'
           component: tools
         id: setup-lab-default
-      - exec:
-          commandLine: 'cp -n /projects/workshop/tools/solution/steps/7/mcp-servers/camel-quarkus/settings.xml $HOME/.m2'
-          component: tools
-        id: config-settings-snapshot
     components:
       - container:
           endpoints:
@@ -78,12 +64,33 @@ spec:
       - name: m2
         volume:
           size: {{ .Values.devworkspace.m2VolumeSize }}
+      - container:
+          args:
+            - '-c'
+            - >-
+              mkdir -p /projects/.bin &&
+              cp /usr/bin/oc /projects/.bin/oc &&
+              cp /usr/bin/kubectl /projects/.bin/kubectl
+          command:
+            - /bin/bash
+          cpuLimit: 200m
+          cpuRequest: 10m
+          env:
+            - name: HOME
+              value: /home/user
+            - name: HOST_USERS
+              value: 'false'
+          image: {{ .Values.devworkspace.prepWorkspace.image }}
+          memoryLimit: 256Mi
+          memoryRequest: 128Mi
+          mountSources: true
+          sourceMapping: /projects
+        name: prep-workspace
     events:
+      preStart:
+        - prep-workspace
       postStart:
-        - init-kube
-        - set-camel-cli
         - setup-lab-default
-        - config-settings-snapshot
     projects:
       - name: workshop
         git:
