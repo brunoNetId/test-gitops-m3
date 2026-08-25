@@ -52,6 +52,24 @@ spec:
                 echo "  No Sites found (student may not have created one)"
               fi
 
+              # Delete all AccessGrants in the tenant namespace
+              GRANTS=$(curl -sSk \
+                "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/accessgrants" \
+                -H "Authorization: Bearer $SA_TOKEN" | jq -r '.items[].metadata.name // empty' 2>/dev/null)
+              for GRANT in $GRANTS; do
+                HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                  "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/accessgrants/$GRANT" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  Deleted accessgrant/${GRANT}"
+                else
+                  echo "  WARNING: Failed to delete accessgrant/${GRANT} (HTTP $HTTP_CODE)"
+                fi
+              done
+              if [ -z "$GRANTS" ]; then
+                echo "  No AccessGrants found (student may not have created one)"
+              fi
+
               echo "Cleaning up Skupper resources for ${OC_USER} in ${SHARED_DB_NS}..."
 
               # Delete Link (if student created one)

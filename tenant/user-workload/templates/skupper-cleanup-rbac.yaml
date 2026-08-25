@@ -40,7 +40,7 @@ metadata:
     {{- include "user-workload.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["skupper.io"]
-    resources: ["sites"]
+    resources: ["sites", "accessgrants"]
     verbs: ["list", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
