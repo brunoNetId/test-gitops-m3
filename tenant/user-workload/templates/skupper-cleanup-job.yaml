@@ -70,6 +70,24 @@ spec:
                 echo "  No AccessGrants found (student may not have created one)"
               fi
 
+              # Delete all Listeners in the tenant namespace
+              LISTENERS=$(curl -sSk \
+                "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/listeners" \
+                -H "Authorization: Bearer $SA_TOKEN" | jq -r '.items[].metadata.name // empty' 2>/dev/null)
+              for LISTENER in $LISTENERS; do
+                HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X DELETE \
+                  "$KUBE_API/apis/skupper.io/v2alpha1/namespaces/$TENANT_NS/listeners/$LISTENER" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "  Deleted listener/${LISTENER}"
+                else
+                  echo "  WARNING: Failed to delete listener/${LISTENER} (HTTP $HTTP_CODE)"
+                fi
+              done
+              if [ -z "$LISTENERS" ]; then
+                echo "  No Listeners found (student may not have created one)"
+              fi
+
               echo "Cleaning up Skupper resources for ${OC_USER} in ${SHARED_DB_NS}..."
 
               # Delete Link (if student created one)
