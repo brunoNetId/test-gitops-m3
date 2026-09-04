@@ -77,7 +77,6 @@ connectivityLink:
     gatewayClassName: openshift-default
   llmApi:
     namespace: llm-api
-    host: ""
     serviceName: ai-api-external
   kuadrantNamespace: kuadrant-system
 

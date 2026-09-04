@@ -1,3 +1,10 @@
+{{- $kuadrantNs := .Values.connectivityLink.kuadrantNamespace }}
+{{- $maasSecret := lookup "v1" "Secret" $kuadrantNs "vault-maas" }}
+{{- $maasHost := "" }}
+{{- if $maasSecret }}
+  {{- $baseUrl := index $maasSecret.data "base_url" | b64dec }}
+  {{- $maasHost = (urlParse $baseUrl).host }}
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -26,7 +33,7 @@ spec:
           requestHeaderModifier:
             set:
               - name: Host
-                value: {{ .Values.connectivityLink.llmApi.host }}
+                value: {{ $maasHost }}
       backendRefs:
         - name: {{ .Values.connectivityLink.llmApi.serviceName }}
           namespace: {{ .Values.connectivityLink.llmApi.namespace }}
