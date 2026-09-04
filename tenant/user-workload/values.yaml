@@ -1,7 +1,6 @@
 tenant:
   username: ""
   openshiftUser: ""
-  namespacePrefix: ""
 
 kafka:
   clusterName: my-cluster
