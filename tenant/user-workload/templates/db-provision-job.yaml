@@ -19,6 +19,11 @@ spec:
           env:
             - name: PGPASSWORD
               value: {{ .Values.sharedDatabase.adminPassword }}
+            - name: USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: vault-common-password
+                  key: password
           command:
             - /bin/bash
             - -c
@@ -29,7 +34,6 @@ spec:
               DB_NAME="{{ .Values.sharedDatabase.database }}"
               DB_ADMIN="{{ .Values.sharedDatabase.adminUser }}"
               USERNAME="{{ .Values.tenant.username }}"
-              USER_PASS="{{ .Values.tenant.password }}"
 
               echo "Provisioning database schema for ${USERNAME}..."
 

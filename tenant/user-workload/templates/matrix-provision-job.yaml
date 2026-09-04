@@ -16,6 +16,12 @@ spec:
       containers:
         - name: matrix-provision
           image: curlimages/curl:latest
+          env:
+            - name: USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: vault-common-password
+                  key: password
           command:
             - /bin/sh
             - -c
@@ -27,7 +33,6 @@ spec:
               ADMIN_USER="{{ .Values.matrix.admin.username }}"
               ADMIN_PASS="{{ .Values.matrix.admin.password }}"
               USERNAME="{{ .Values.tenant.username }}"
-              USER_PASS="{{ .Values.tenant.password }}"
               ROOM_NAME="{{ include "user-workload.roomname" . }}"
 
               # --- Step 1: Wait for Synapse to be ready ---

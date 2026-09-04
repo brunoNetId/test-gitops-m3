@@ -21,18 +21,12 @@ spec:
               value: "https://helpdesk-{{ .Values.helpdesk.namespace }}.{{ .Values.cluster.appsDomain }}"
             - name: MATRIX_URL
               value: "https://element-{{ .Values.matrix.namespace }}.{{ .Values.cluster.appsDomain }}"
-            - name: MAAS_URL
-              value: {{ .Values.connectivityLink.maasUrl | quote }}
-            - name: MAAS_KEY
-              value: {{ .Values.connectivityLink.maasKey | quote }}
             - name: INTERNAL_AI_GATEWAY_URL
               value: "http://{{ .Values.connectivityLink.aiGateway.gatewayName }}-{{ .Values.connectivityLink.aiGateway.gatewayClassName }}.{{ .Values.connectivityLink.aiGateway.namespace }}.svc.cluster.local"
-            - name: SILVER_API_KEY
-              value: {{ .Values.connectivityLink.silverApiKey | quote }}
-            - name: GOLD_API_KEY
-              value: {{ .Values.connectivityLink.goldApiKey | quote }}
             - name: TENANT_USERNAME
               value: {{ .Values.tenant.username | quote }}
+            - name: KUADRANT_NS
+              value: {{ .Values.connectivityLink.kuadrantNamespace | quote }}
           command:
             - /bin/sh
             - -c
@@ -43,6 +37,24 @@ spec:
               NAMESPACE="{{ include "user-workload.namespace" . }}"
               KUBE_API="https://kubernetes.default.svc"
               EXPECTED_KEYS="database.json helpdesk.json matrix.json rocketchat.json s3.json"
+
+              # --- Read MaaS credentials from Vault-sourced Secret ---
+              echo "Reading MaaS credentials..."
+              MAAS_SECRET=$(curl -sSk "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/vault-maas" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              MAAS_KEY=$(echo "$MAAS_SECRET" | jq -r '.data.api_key' | base64 -d)
+              MAAS_URL=$(echo "$MAAS_SECRET" | jq -r '.data.base_url' | base64 -d)
+              echo "  MaaS URL: $MAAS_URL"
+
+              # --- Read API keys from Kuadrant Secrets ---
+              echo "Reading API keys..."
+              SILVER_SECRET=$(curl -sSk "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/m3-api-key-silver-$TENANT_USERNAME" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              SILVER_API_KEY=$(echo "$SILVER_SECRET" | jq -r '.data.api_key' | base64 -d)
+              GOLD_SECRET=$(curl -sSk "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/m3-api-key-gold-$TENANT_USERNAME" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              GOLD_API_KEY=$(echo "$GOLD_SECRET" | jq -r '.data.api_key' | base64 -d)
+              echo "  API keys loaded."
 
               # --- Step 1: Wait for all JSON keys in lab-credentials ---
               echo "Waiting for lab-credentials to be fully populated..."

@@ -1,6 +1,5 @@
 tenant:
   username: ""
-  password: ""
   openshiftUser: ""
   namespacePrefix: ""
 
@@ -68,9 +67,6 @@ camelFlows:
   imageTag: "1.0-SNAPSHOT"
 
 s3:
-  endpoint: ""
-  accessKey: ""
-  secretKey: ""
   invoiceUrl: "https://raw.githubusercontent.com/rh-app-connect-ai/lab-deploy-assets/main/invoices/invoice_61356291.pdf"
   invoiceFile: "invoice_61356291.pdf"
 
@@ -83,10 +79,6 @@ connectivityLink:
     namespace: llm-api
     host: ""
     serviceName: ai-api-external
-  maasUrl: ""
-  maasKey: ""
-  silverApiKey: ""
-  goldApiKey: ""
   kuadrantNamespace: kuadrant-system
 
 argocd:

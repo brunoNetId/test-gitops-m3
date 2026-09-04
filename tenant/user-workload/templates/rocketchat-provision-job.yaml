@@ -16,6 +16,12 @@ spec:
       containers:
         - name: rc-provision
           image: curlimages/curl:latest
+          env:
+            - name: USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: vault-common-password
+                  key: password
           command:
             - /bin/sh
             - -c
@@ -26,7 +32,6 @@ spec:
               ADMIN_USER="{{ .Values.rocketchat.admin.username }}"
               ADMIN_PASS="{{ .Values.rocketchat.admin.password }}"
               USERNAME="{{ .Values.tenant.username }}"
-              USER_PASS="{{ .Values.tenant.password }}"
               ROOM_NAME="{{ include "user-workload.roomname" . }}"
 
               # --- Step 1: Wait for RocketChat to be ready ---

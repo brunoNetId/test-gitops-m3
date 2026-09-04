@@ -1,0 +1,28 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: vault-s3
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "admin.labels" . | nindent 4 }}
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vault-secret-store
+  data:
+    - secretKey: accessKey
+      remoteRef:
+        key: secrets/s3/noobaa
+        property: accessKey
+    - secretKey: secretKey
+      remoteRef:
+        key: secrets/s3/noobaa
+        property: secretKey
+    - secretKey: endpoint
+      remoteRef:
+        key: secrets/s3/noobaa
+        property: endpoint
+  target:
+    name: vault-s3
+    creationPolicy: Owner

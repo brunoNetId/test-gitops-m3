@@ -18,14 +18,24 @@ spec:
           image: amazon/aws-cli:latest
           env:
             - name: AWS_ACCESS_KEY_ID
-              value: {{ .Values.s3.accessKey }}
+              valueFrom:
+                secretKeyRef:
+                  name: vault-s3
+                  key: accessKey
             - name: AWS_SECRET_ACCESS_KEY
-              value: {{ .Values.s3.secretKey }}
+              valueFrom:
+                secretKeyRef:
+                  name: vault-s3
+                  key: secretKey
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: vault-s3
+                  key: endpoint
           command:
             - /bin/sh
             - -c
             - |
-              S3_ENDPOINT="{{ .Values.s3.endpoint }}"
               BUCKET="{{ .Values.tenant.username }}"
 
               echo "=== S3 cleanup for ${BUCKET} ==="

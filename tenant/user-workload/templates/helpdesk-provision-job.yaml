@@ -16,6 +16,12 @@ spec:
       containers:
         - name: hd-provision
           image: badouralix/curl-jq:latest
+          env:
+            - name: USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: vault-common-password
+                  key: password
           command:
             - /bin/sh
             - -c
@@ -26,7 +32,6 @@ spec:
               ADMIN_USER="{{ .Values.helpdesk.admin.username }}"
               ADMIN_PASS="{{ .Values.helpdesk.admin.password }}"
               USERNAME="{{ .Values.tenant.username }}"
-              USER_PASS="{{ .Values.tenant.password }}"
               GROUP_NAME="Group ${USERNAME}"
 
               # --- Step 1: Wait for Trudesk to be ready ---
