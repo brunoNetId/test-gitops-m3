@@ -30,7 +30,7 @@ spec:
       containers:
         - name: {{ $app }}
           image: {{ $imageRegistry }}/{{ $.Values.camelFlows.namespace }}/{{ $app }}:{{ $.Values.camelFlows.imageTag }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
