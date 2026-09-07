@@ -1,6 +1,7 @@
 tenant:
   username: ""
   openshiftUser: ""
+  password: ""
 
 kafka:
   clusterName: my-cluster

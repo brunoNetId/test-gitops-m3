@@ -18,10 +18,7 @@ spec:
           image: badouralix/curl-jq:latest
           env:
             - name: USER_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: vault-common-password
-                  key: password
+              value: {{ .Values.tenant.password | quote }}
           command:
             - /bin/sh
             - -c
