@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kuadrant-provision-{{ .Values.tenant.username }}
+  namespace: {{ include "user-workload.namespace" . }}
+  labels:
+    {{- include "user-workload.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: kuadrant-provision
+          image: badouralix/curl-jq:latest
+          env:
+            - name: TENANT_USERNAME
+              value: {{ .Values.tenant.username | quote }}
+            - name: KUADRANT_NS
+              value: {{ .Values.connectivityLink.kuadrantNamespace | quote }}
+            - name: TENANT_NS
+              value: {{ include "user-workload.namespace" . | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              KUBE_API="https://kubernetes.default.svc"
+
+              # --- Step 1: Read MaaS credentials ---
+              echo "Reading MaaS credentials from vault-maas..."
+              MAAS_SECRET=$(curl -sSk "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/vault-maas" \
+                -H "Authorization: Bearer $SA_TOKEN")
+              MAAS_KEY=$(echo "$MAAS_SECRET" | jq -r '.data.api_key' | base64 -d)
+              BASE_URL=$(echo "$MAAS_SECRET" | jq -r '.data.base_url' | base64 -d)
+              MAAS_HOST=$(echo "$BASE_URL" | sed 's|https\?://||' | sed 's|/.*||')
+              echo "  MaaS host: $MAAS_HOST"
+
+              # --- Step 2: Generate/preserve API keys ---
+              for TIER in silver gold; do
+                SECRET_NAME="m3-api-key-${TIER}-${TENANT_USERNAME}"
+                echo "Processing $SECRET_NAME..."
+
+                EXISTING=$(curl -sSk "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/$SECRET_NAME" \
+                  -H "Authorization: Bearer $SA_TOKEN")
+
+                EXISTING_KEY=$(echo "$EXISTING" | jq -r '.data.api_key // empty')
+                if [ -n "$EXISTING_KEY" ]; then
+                  DECODED=$(echo "$EXISTING_KEY" | base64 -d)
+                  echo "  Key already exists: ${DECODED:0:20}..."
+                else
+                  NEW_KEY="${TIER}-${TENANT_USERNAME}-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 12 | head -n 1)"
+                  echo "  Generated new key: ${NEW_KEY:0:20}..."
+                  B64_KEY=$(printf '%s' "$NEW_KEY" | base64 | tr -d '\n')
+
+                  HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                    "$KUBE_API/api/v1/namespaces/$KUADRANT_NS/secrets/$SECRET_NAME" \
+                    -H "Authorization: Bearer $SA_TOKEN" \
+                    -H "Content-Type: application/merge-patch+json" \
+                    -d "{\"data\":{\"api_key\":\"$B64_KEY\"}}")
+
+                  if [ "$HTTP_CODE" = "200" ]; then
+                    echo "  Patched api_key into $SECRET_NAME."
+                  else
+                    echo "  ERROR: Failed to patch $SECRET_NAME (HTTP $HTTP_CODE)"
+                    exit 1
+                  fi
+                fi
+              done
+
+              # --- Step 3: Patch HTTPRoute with MaaS host ---
+              echo "Patching HTTPRoute with MaaS host..."
+              HTTP_CODE=$(curl -sSk -o /dev/null -w "%{http_code}" -X PATCH \
+                "$KUBE_API/apis/gateway.networking.k8s.io/v1/namespaces/$TENANT_NS/httproutes/ai-proxy-route" \
+                -H "Authorization: Bearer $SA_TOKEN" \
+                -H "Content-Type: application/json-patch+json" \
+                -d "[{\"op\":\"replace\",\"path\":\"/spec/rules/0/filters/1/requestHeaderModifier/set/0/value\",\"value\":\"$MAAS_HOST\"}]")
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "HTTPRoute patched with host: $MAAS_HOST"
+              else
+                echo "ERROR: Failed to patch HTTPRoute (HTTP $HTTP_CODE)"
+                exit 1
+              fi
+
+              echo "Kuadrant provisioning complete."
