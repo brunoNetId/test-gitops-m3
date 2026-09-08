@@ -111,7 +111,8 @@ spec:
               {"name": "gen:custompagelogo", "value": true},
               {"name": "gen:custompagelogofilename", "value": "pageLogo.svg"},
               {"name": "gen:customfavicon", "value": true},
-              {"name": "gen:customfaviconfilename", "value": "favicon.svg"}
+              {"name": "gen:customfaviconfilename", "value": "favicon.svg"},
+              {"name": "accountsPasswordComplexity:enable", "value": false}
             ]')
           BRAND_CODE=$(echo "$BRAND_OUTPUT" | tail -1)
 
