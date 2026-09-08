@@ -28,6 +28,9 @@ spec:
               - name: Host
                 value: "pending"
       backendRefs:
-        - name: {{ .Values.connectivityLink.llmApi.serviceName }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.connectivityLink.llmApi.serviceName }}
           namespace: {{ .Values.connectivityLink.llmApi.namespace }}
           port: 443
+          weight: 1
