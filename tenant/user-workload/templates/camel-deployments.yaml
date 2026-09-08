@@ -43,6 +43,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- if eq $app "k2r" }}
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Dcamel.component.xslt-saxon.secureProcessing=false"
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /observe/health/ready
