@@ -101,34 +101,41 @@ spec:
                 exit 1
               fi
 
-              # --- Step 5: Create outgoing webhook ---
+              # --- Step 5: Create outgoing webhook (idempotent) ---
               R2K_URL="http://r2k.{{ include "user-workload.namespace" . }}.svc:80/webhook"
-              echo "Creating outgoing webhook for channel '${ROOM_NAME}'..."
-              RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
-                -H 'Content-Type: application/json' \
+              WEBHOOK_NAME="${ROOM_NAME} webhook"
+              echo "Checking for existing webhook '${WEBHOOK_NAME}'..."
+              EXISTING=$(curl -s "${RC_URL}/api/v1/integrations.list" \
                 -H "X-User-Id: ${ADMIN_ID}" \
                 -H "X-Auth-Token: ${ADMIN_TOKEN}" \
-                -d "{
-                  \"type\": \"webhook-outgoing\",
-                  \"name\": \"${ROOM_NAME} webhook\",
-                  \"event\": \"sendMessage\",
-                  \"enabled\": true,
-                  \"channel\": \"#${ROOM_NAME}\",
-                  \"username\": \"${USERNAME}\",
-                  \"urls\": [\"${R2K_URL}\"],
-                  \"scriptEnabled\": true,
-                  \"script\": \"class Script {process_outgoing_response({ request, response }){return false;}}\"
-                }")
-
-              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-              BODY=$(echo "$RESPONSE" | sed '$d')
-
-              if [ "$HTTP_CODE" = "200" ]; then
-                echo "Webhook created successfully."
-              elif echo "$BODY" | grep -q "already exists"; then
-                echo "Webhook already exists (OK)."
+                --get --data-urlencode "count=100")
+              if echo "$EXISTING" | grep -q "\"name\":\"${WEBHOOK_NAME}\""; then
+                echo "Webhook '${WEBHOOK_NAME}' already exists (OK)."
               else
-                echo "WARNING: Webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+                echo "Creating outgoing webhook '${WEBHOOK_NAME}'..."
+                RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
+                  -H 'Content-Type: application/json' \
+                  -H "X-User-Id: ${ADMIN_ID}" \
+                  -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                  -d "{
+                    \"type\": \"webhook-outgoing\",
+                    \"name\": \"${WEBHOOK_NAME}\",
+                    \"event\": \"sendMessage\",
+                    \"enabled\": true,
+                    \"channel\": \"#${ROOM_NAME}\",
+                    \"username\": \"${USERNAME}\",
+                    \"urls\": [\"${R2K_URL}\"],
+                    \"scriptEnabled\": true,
+                    \"script\": \"class Script {process_outgoing_response({ request, response }){return false;}}\"
+                  }")
+
+                HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+                if [ "$HTTP_CODE" = "200" ]; then
+                  echo "Webhook created successfully."
+                else
+                  BODY=$(echo "$RESPONSE" | sed '$d')
+                  echo "WARNING: Webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+                fi
               fi
 
               # --- Step 6: Create AI Bot user ---
@@ -202,32 +209,34 @@ spec:
                 echo "WARNING: Could not find workspace service — skipping AI Support webhook."
               else
                 WORKSPACE_URL="http://${WORKSPACE_SVC}.${NAMESPACE}.svc.cluster.local:8080/ai-support"
-                echo "Creating AI Support webhook → ${WORKSPACE_URL}"
-                RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
-                  -H 'Content-Type: application/json' \
-                  -H "X-User-Id: ${ADMIN_ID}" \
-                  -H "X-Auth-Token: ${ADMIN_TOKEN}" \
-                  -d "{
-                    \"type\": \"webhook-outgoing\",
-                    \"name\": \"${AI_CHANNEL} webhook\",
-                    \"event\": \"sendMessage\",
-                    \"enabled\": true,
-                    \"channel\": \"#${AI_CHANNEL}\",
-                    \"username\": \"ai-bot\",
-                    \"urls\": [\"${WORKSPACE_URL}\"],
-                    \"scriptEnabled\": true,
-                    \"script\": \"class Script {prepare_outgoing_request({request}){if(request.data.bot){return;}return request;}}\"
-                  }")
-
-                HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-                BODY=$(echo "$RESPONSE" | sed '$d')
-
-                if [ "$HTTP_CODE" = "200" ]; then
-                  echo "AI Support webhook created."
-                elif echo "$BODY" | grep -q "already exists"; then
-                  echo "AI Support webhook already exists (OK)."
+                AI_WEBHOOK_NAME="${AI_CHANNEL} webhook"
+                if echo "$EXISTING" | grep -q "\"name\":\"${AI_WEBHOOK_NAME}\""; then
+                  echo "AI Support webhook '${AI_WEBHOOK_NAME}' already exists (OK)."
                 else
-                  echo "WARNING: AI Support webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+                  echo "Creating AI Support webhook → ${WORKSPACE_URL}"
+                  RESPONSE=$(curl -s -w "\n%{http_code}" "${RC_URL}/api/v1/integrations.create" \
+                    -H 'Content-Type: application/json' \
+                    -H "X-User-Id: ${ADMIN_ID}" \
+                    -H "X-Auth-Token: ${ADMIN_TOKEN}" \
+                    -d "{
+                      \"type\": \"webhook-outgoing\",
+                      \"name\": \"${AI_WEBHOOK_NAME}\",
+                      \"event\": \"sendMessage\",
+                      \"enabled\": true,
+                      \"channel\": \"#${AI_CHANNEL}\",
+                      \"username\": \"ai-bot\",
+                      \"urls\": [\"${WORKSPACE_URL}\"],
+                      \"scriptEnabled\": true,
+                      \"script\": \"class Script {prepare_outgoing_request({request}){if(request.data.bot){return;}return request;}}\"
+                    }")
+
+                  HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+                  if [ "$HTTP_CODE" = "200" ]; then
+                    echo "AI Support webhook created."
+                  else
+                    BODY=$(echo "$RESPONSE" | sed '$d')
+                    echo "WARNING: AI Support webhook creation returned HTTP ${HTTP_CODE}: ${BODY}"
+                  fi
                 fi
               fi
 
